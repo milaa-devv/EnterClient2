@@ -1,0 +1,388 @@
+@use 'variables' as *;
+@use 'custom-properties' as *;
+
+
+.font-display {
+  font-family: var(--font-display) !important;
+}
+
+.font-primary {
+  font-family: var(--font-primary) !important;
+}
+
+.font-secondary {
+  font-family: var(--font-secondary) !important;
+}
+
+.text-gradient {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+}
+
+.bg-gradient-primary {
+  background: var(--gradient-primary) !important;
+}
+
+
+// Sidebar
+.sidebar {
+  width: var(--sidebar-width);
+  height: calc(100vh - var(--navbar-height));
+  background: white;
+  border-right: 1px solid var(--color-border);
+  transition: var(--transition-base);
+  position: fixed;
+  top: var(--navbar-height);
+  left: 0;
+  z-index: 1000;
+  transform: translateX(-100%);
+  
+  &.show {
+    transform: translateX(0);
+  }
+  
+  @media (min-width: 992px) {
+    position: relative;
+    top: auto;
+    transform: none;
+    
+    &.show {
+      transform: none;
+    }
+  }
+  
+  .sidebar-header {
+    background: var(--gradient-primary);
+    color: white;
+    padding: 1.5rem;
+    font-family: var(--font-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+  
+  .sidebar-nav {
+    padding: 1rem 0;
+    
+    .nav-item {
+      margin: 0.25rem 1rem;
+    }
+    
+    .nav-link {
+      color: var(--color-text-primary);
+      padding: 0.875rem 1rem;
+      border-radius: 0.5rem;
+      font-family: var(--font-primary);
+      font-weight: var(--font-weight-medium);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      transition: var(--transition-fast);
+      
+      &:hover {
+        background-color: rgba(169, 134, 255, 0.1);
+        color: var(--color-primary);
+      }
+      
+      &.active {
+        background: var(--gradient-primary);
+        color: white;
+      }
+      
+      .nav-icon {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+    }
+  }
+}
+
+.main-content {
+  margin-left: 0;
+  transition: var(--transition-base);
+  
+  @media (min-width: 992px) {
+    &.sidebar-open {
+      margin-left: var(--sidebar-width);
+    }
+  }
+}
+
+// ==========================================
+// FORM COMPONENTS
+// ==========================================
+
+.form-control {
+  border-color: var(--color-border);
+  font-family: var(--font-secondary);
+  
+  &:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0.2rem rgba(169, 134, 255, 0.25);
+  }
+}
+
+.form-label {
+  font-family: var(--font-primary);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 0.5rem;
+
+  &.required::after {
+    content: ' *';
+    color: #dc3545;
+  }
+}
+
+// ==========================================
+// BUTTON COMPONENTS
+// ==========================================
+
+.btn {
+  font-family: var(--font-primary);
+  font-weight: var(--font-weight-medium);
+  border-radius: 0.5rem;
+  transition: var(--transition-fast);
+}
+
+.btn-gradient {
+  background: var(--gradient-primary);
+  border: none;
+  color: white;
+  
+  &:hover {
+    background: var(--gradient-secondary);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(169, 134, 255, 0.3);
+  }
+}
+
+
+
+// ==========================================
+// CARD COMPONENTS
+// ==========================================
+
+.card {
+  border-color: var(--color-border);
+  border-radius: 0.75rem;
+  transition: var(--transition-fast);
+  
+  &:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+  }
+  
+  .card-header {
+    background: white;
+    border-bottom-color: var(--color-border);
+    font-family: var(--font-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+// ==========================================
+// STEPPER COMPONENT
+// ==========================================
+
+.stepper-horizontal {
+  .stepper-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    
+    @media (max-width: 768px) {
+      justify-content: flex-start;
+      overflow-x: auto;
+      padding-bottom: 1rem;
+    }
+  }
+  
+  .step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    
+    .step-button {
+      background: none;
+      border: none;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      
+      &:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+    }
+    
+    .step-indicator {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: var(--font-weight-semibold);
+      transition: var(--transition-fast);
+    }
+    
+    .step-title {
+      font-size: 0.875rem;
+      font-family: var(--font-primary);
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary);
+      text-align: center;
+      max-width: 100px;
+    }
+    
+    &.active {
+      .step-indicator {
+        background: var(--color-secondary);
+        color: white;
+      }
+      .step-title {
+        color: var(--color-text-primary);
+      }
+    }
+    
+    &.completed {
+      .step-indicator {
+        background: var(--color-primary);
+        color: white;
+      }
+      .step-title {
+        color: var(--color-primary);
+      }
+    }
+  }
+  
+  .step-separator {
+    color: var(--color-border);
+    margin: 0 0.5rem;
+  }
+}
+
+// ==========================================
+// EMPRESA GRID
+// ==========================================
+
+.empresa-card {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  background: white;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  
+  &:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 8px 25px rgba(169, 134, 255, 0.15);
+    transform: translateY(-2px);
+  }
+  
+  .empresa-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 0.5rem;
+    background: var(--color-border-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .empresa-info {
+    flex: 1;
+    
+    .empresa-nombre {
+      font-family: var(--font-primary);
+      font-weight: var(--font-weight-semibold);
+      font-size: 1.1rem;
+      color: var(--color-text-primary);
+      margin-bottom: 0.25rem;
+    }
+    
+    .empresa-rut {
+      color: var(--color-text-secondary);
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+    }
+    
+    .empresa-empkey {
+      font-size: 0.875rem;
+      color: var(--color-primary);
+      font-weight: var(--font-weight-medium);
+    }
+  }
+  
+  .empresa-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: var(--font-weight-medium);
+    
+    &.status-comercial {
+      background: rgba(255, 193, 7, 0.1);
+      color: #856404;
+    }
+    
+    &.status-onboarding {
+      background: rgba(13, 202, 240, 0.1);
+      color: #0c5460;
+    }
+    
+    &.status-sac {
+      background: rgba(255, 107, 53, 0.1);
+      color: #842029;
+    }
+    
+    &.status-completada {
+      background: rgba(25, 135, 84, 0.1);
+      color: #0f5132;
+    }
+  }
+}
+
+// ==========================================
+// RESPONSIVE UTILITIES
+// ==========================================
+
+@media (max-width: 768px) {
+  .empresa-card {
+    padding: 1rem;
+    
+    .empresa-logo {
+      width: 50px;
+      height: 50px;
+    }
+    
+    .empresa-info .empresa-nombre {
+      font-size: 1rem;
+    }
+  }
+}
+
+// ==========================================
+// NAVBAR CUSTOM
+// ==========================================
+
+.navbar {
+  height: var(--navbar-height);
+  border-bottom: 1px solid var(--color-border);
+  
+  .navbar-brand {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    color: var(--color-primary) !important;
+  }
+}

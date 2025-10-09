@@ -1,0 +1,29 @@
+@use 'variables' as * ;
+
+:root {
+  --color-primary: #{$primary-color};
+  --color-secondary: #{$secondary-color};
+  --color-text-primary: #{$text-primary};
+  --color-text-secondary: #{$text-secondary};
+  --color-background: #{$background-color};
+  --color-border: #{$border-color};
+  --color-border-light: #{$border-light};
+  
+  --gradient-primary: linear-gradient(135deg, #{$primary-color}, #{$secondary-color});
+  --gradient-secondary: linear-gradient(135deg, #{$secondary-color}, #{$primary-color});
+  
+  --font-display: #{$font-display};
+  --font-primary: #{$font-primary};
+  --font-secondary: #{$font-secondary};
+  
+  --font-weight-normal: #{$font-weight-normal};
+  --font-weight-medium: #{$font-weight-medium};
+  --font-weight-semibold: #{$font-weight-semibold};
+  --font-weight-bold: #{$font-weight-bold};
+  
+  --sidebar-width: 280px;
+  --navbar-height: 70px;
+  
+  --transition-base: all 0.3s ease;
+  --transition-fast: all 0.15s ease;
+}

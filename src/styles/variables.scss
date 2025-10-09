@@ -1,0 +1,27 @@
+// Paleta de colores
+$primary-color: #A986FF;
+$secondary-color: #73AEFF;
+$background-color: #FFFFFF;
+$text-primary: #1A1A1A;
+$text-secondary: #6B6B6B;
+$border-color: #EAEAEA;
+$border-light: #F2F2F2;
+
+// Tipografía
+$font-display: 'Satisfy', cursive;
+$font-primary: 'Manrope', sans-serif;
+$font-secondary: 'Nunito', sans-serif;
+
+// Pesos de fuente
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+// Bootstrap override
+$primary: $primary-color;
+$secondary: $secondary-color;
+$body-bg: $background-color;
+$body-color: $text-primary;
+$font-family-base: $font-secondary;
+$headings-font-family: $font-primary;
