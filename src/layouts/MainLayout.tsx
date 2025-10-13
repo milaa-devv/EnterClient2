@@ -4,7 +4,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { Menu } from 'lucide-react'
 
 const MainLayout: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev)
 

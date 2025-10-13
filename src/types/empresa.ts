@@ -1,3 +1,5 @@
+// === Secciones base ===
+
 export interface DatosGenerales {
   nombre: string
   rut: string
@@ -35,10 +37,11 @@ export interface DocumentoTributario {
 
 export interface Contraparte {
   id?: string
+  rut?: string
   nombre: string
-  cargo: string
-  telefono: string
   correo: string
+  telefono?: string
+  cargo?: string
   tipo: 'TECNICA' | 'ADMINISTRATIVA'
 }
 
@@ -46,22 +49,28 @@ export interface UsuarioPlataforma {
   id?: string
   rut: string
   nombre: string
-  rol: string
   correo: string
+  rol: string
+  telefono?: string
+  activo?: boolean
 }
 
 export interface ConfiguracionNotificacion {
   id?: string
   correo: string
+  tipo?: string
   descripcion: string
+  activo?: boolean
 }
 
 export interface InformacionPlan {
   producto: 'ENTERFAC' | 'ANDESPOS'
   codigo_plan: string
+  plan_nombre?: string
+  precio?: string
 }
 
-// Datos Comercial completos
+// === Datos Comercial completos ===
 export interface DatosComercial {
   datosGenerales: DatosGenerales
   datosContacto: DatosContacto
@@ -74,30 +83,30 @@ export interface DatosComercial {
   informacionPlan: InformacionPlan
 }
 
-// Datos Onboarding
+// === Datos Onboarding ===
 export interface ConfiguracionEmpresa {
   formato_impresion: 'TERMICA' | 'LASER'
   casilla_intercambio: string
   replica_password: string
   empkey: number
-  url_visto_bueno: string
-  url_membrete: string
+  url_visto_bueno?: string
+  url_membrete?: string
   layout: 'CUSTOM' | 'ESTANDAR'
   layout_opciones?: string[]
   dte_habilitados: string[]
-  tipo_integracion: string[]
-  otros: string
-  version_mensaje: string
-  version_emisor: string
-  version_app_full: string
-  version_winplugin: string
+  tipo_integracion?: string[] | string
+  otros?: string
+  version_mensaje?: string
+  version_emisor?: string
+  version_app_full?: string
+  version_winplugin?: string
 }
 
 export interface DatosOnboarding {
   configuracionEmpresa: ConfiguracionEmpresa
 }
 
-// Datos SAC
+// === Datos SAC ===
 export interface DatosPAP {
   declaracion_cumplimiento: boolean
   casilla: string
@@ -109,7 +118,7 @@ export interface DatosSAC {
   pap: DatosPAP
 }
 
-// Empresa completa
+// === Empresa completa: para Grid/Dashboard (con relaciones supabase) ===
 export interface EmpresaCompleta {
   id?: number
   empkey?: number
@@ -125,13 +134,39 @@ export interface EmpresaCompleta {
   estado: 'COMERCIAL' | 'ONBOARDING' | 'SAC' | 'COMPLETADA'
   created_at?: string
   updated_at?: string
-  comercial: DatosComercial
+
+  // Relaciones (1:1)
+  empresa_comercial?: {
+    nombre_comercial: string
+    correo_comercial: string
+    telefono_comercial: string
+  } | null
+
+  empresa_onboarding?: {
+    estado: string
+    encargado_name: string
+    encargado_email?: string
+    encargado_phone?: string
+    fecha_inicio?: string
+    fecha_fin?: string
+  } | null
+
+  empresa_sac?: {
+    nombre_sac: string
+    correo_sac?: string
+    telefono_sac?: string
+    direccion_sac?: string
+    horario_atencion?: string
+  } | null
+
+  // Internos para formularios si los sigues usando:
+  comercial?: DatosComercial
   onboarding?: DatosOnboarding
   sac?: DatosSAC
 }
 
 // Estados del formulario
-export type FormStep = 
+export type FormStep =
   | 'datos-generales'
   | 'datos-contacto'
   | 'actividades-economicas'
@@ -148,61 +183,4 @@ export interface FormState {
   data: Partial<DatosComercial>
   errors: Record<string, string>
   isValid: boolean
-}
-export interface UsuarioPlataforma {
-  id: string
-  rut: string
-  nombre: string
-  correo: string
-  telefono?: string
-  rol: 'admin' | 'user' | 'viewer' | 'accountant'
-  activo: boolean
-}
-
-export interface ConfiguracionNotificacion {
-  id: string
-  correo: string
-  tipo: string
-  descripcion: string
-  activo: boolean
-}
-
-export interface Contraparte {
-  id: string
-  rut: string
-  nombre: string
-  correo: string
-  telefono?: string
-  cargo?: string
-  tipo: 'TECNICA' | 'ADMINISTRATIVA'
-}
-
-export interface ConfiguracionEmpresa {
-  formato_impresion: 'TERMICA' | 'LASER'
-  casilla_intercambio: string
-  replica_password: string
-  empkey: number
-  url_visto_bueno?: string
-  url_membrete?: string
-  layout: 'CUSTOM' | 'ESTANDAR'
-  dte_habilitados: string[]
-  tipo_integracion?: string
-  otros?: string
-  version_mensaje?: string
-  version_emisor?: string
-  version_app_full?: string
-  version_winplugin?: string
-}
-
-export interface DatosPAP {
-  declaracion_cumplimiento: boolean
-  casilla: string
-  sender_enternet: string[]
-  acotaciones: string
-}
-export interface InformacionPlan {
-  producto: 'ENTERFAC' | 'ANDESPOS'
-  codigo_plan: string
-  plan_nombre: string
-  precio: string
 }

@@ -39,10 +39,9 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
   const { profile } = useAuth()
 
   const buildQuery = useCallback(() => {
-    let query = supabase
+    return supabase
       .from('empresa')
-      .select(
-        `
+      .select(`
         empkey,
         rut,
         nombre,
@@ -51,42 +50,66 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
         logo,
         domicilio,
         telefono,
-        correo
-        `,
-        { count: 'exact' }
-      )
+        correo,
+        empresa_comercial (
+          nombre_comercial,
+          correo_comercial,
+          telefono_comercial
+        ),
+        empresa_onboarding (
+          estado,
+          encargado_name,
+          encargado_email,
+          encargado_phone,
+          fecha_inicio,
+          fecha_fin
+        ),
+        empresa_sac (
+          nombre_sac,
+          correo_sac,
+          telefono_sac,
+          direccion_sac,
+          horario_atencion
+        )
+      `, { count: 'exact' })
+  }, [])
 
-    if (searchQuery.trim()) {
-      const search = searchQuery.trim()
-      if (/^\d+$/.test(search)) {
-        query = query.or(
-          `rut.ilike.%${search}%,nombre.ilike.%${search}%,empkey.eq.${search}`
-        )
-      } else {
-        query = query.or(
-          `rut.ilike.%${search}%,nombre.ilike.%${search}%`
-        )
+  const filterEmpresasByProfile = useCallback((data: EmpresaCompleta[]) => {
+    if (!profile) return []
+
+    const filtered = data.filter(e => {
+      let keep = true
+      switch (profile.perfil.nombre) {
+        case 'COM':
+          keep = !!e.empresa_comercial
+          break
+        case 'ADMIN_OB':
+          keep = !e.empresa_onboarding ||
+            (e.empresa_onboarding && ['ONBOARDING', 'SAC', 'COMPLETADA'].includes(e.empresa_onboarding.estado))
+          break
+        case 'OB':
+          keep = !e.empresa_onboarding ||
+            (e.empresa_onboarding &&
+              ['ONBOARDING', 'SAC', 'COMPLETADA'].includes(e.empresa_onboarding.estado) &&
+              e.empresa_onboarding.encargado_name === profile.rut)
+          break
+        case 'ADMIN_SAC':
+          keep = !!e.empresa_sac
+          break
+        case 'SAC':
+          keep = !!e.empresa_sac
+          break
+        default:
+          keep = true
+          break
       }
-    }
-
-    // Si tienes dashboards con filtros de estado de onboarding, mantenlos por rol
-    if (filters.estado && profile?.perfil?.nombre !== 'COM') {
-      query = query.eq('empresa_onboarding.estado', filters.estado)
-    }
-    if (filters.fechaInicio && filters.fechaFin) {
-      query = query
-        .gte('empresa_onboarding.fecha_inicio', filters.fechaInicio)
-        .lte('empresa_onboarding.fecha_inicio', filters.fechaFin)
-    }
-    if (profile?.perfil?.nombre === 'OB') {
-      query = query.in('empresa_onboarding.estado', [
-        'ONBOARDING', 'SAC', 'COMPLETADA'
-      ])
-    } else if (profile?.perfil?.nombre === 'SAC') {
-      query = query.in('empresa_onboarding.estado', ['SAC', 'COMPLETADA'])
-    }
-    return query
-  }, [searchQuery, filters, profile])
+      if (!keep) {
+        console.log('Empresa filtrada fuera:', e.empkey, profile.perfil.nombre, e)
+      }
+      return keep
+    })
+    return filtered
+  }, [profile])
 
   const searchEmpresas = useCallback(async () => {
     setLoading(true)
@@ -96,16 +119,32 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
         (currentPage - 1) * pageSize,
         currentPage * pageSize - 1
       )
-      const { data, error: searchError, count } = await query
+      const { data, error: searchError } = await query
       if (searchError) throw searchError
-      setEmpresas(data || [])
-      setTotalCount(count || 0)
+
+      console.log('Datos crudos:', data)
+
+      let filtered = filterEmpresasByProfile(data || [])
+
+      console.log('Datos filtrados:', filtered)
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase()
+        filtered = filtered.filter(e =>
+          (e.nombre?.toLowerCase() || '').includes(q) ||
+          (e.rut?.toString() || '').includes(q) ||
+          (e.nombre_fantasia?.toLowerCase() || '').includes(q)
+        )
+      }
+
+      setEmpresas(filtered)
+      setTotalCount(filtered.length)
     } catch (err: any) {
       setError('Error al buscar empresas: ' + err.message)
     } finally {
       setLoading(false)
     }
-  }, [buildQuery, currentPage, pageSize])
+  }, [buildQuery, currentPage, pageSize, filterEmpresasByProfile, searchQuery])
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {

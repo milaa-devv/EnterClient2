@@ -18,21 +18,22 @@ export const EmpresaCard: React.FC<{ empresa: EmpresaCompleta }> = ({ empresa })
   const logoSrc = getLogoUrl(empresa.logo)
   return (
     <Link to={`/empresa/${empresa.empkey}`} className="text-decoration-none">
-      <div className="empresa-card h-100">
-        <div className="d-flex gap-3 mb-3">
+      <div className="empresa-card h-100 p-3">
+        <div className="d-flex gap-3 align-items-center">
           <div className="empresa-logo">
             {logoSrc ? (
               <img
                 src={logoSrc}
                 alt={empresa.nombre ?? 'Logo'}
                 className="w-100 h-100 object-fit-cover rounded"
+                style={{ width: 48, height: 48 }}
               />
             ) : (
-              <Building2 size={28} className="text-muted" />
+              <Building2 size={48} className="text-muted" />
             )}
           </div>
           <div className="empresa-info flex-grow-1 min-width-0">
-            <h5 className="empresa-nombre text-truncate">
+            <h5 className="empresa-nombre text-truncate mb-1">
               {empresa.nombre ?? 'Sin nombre'}
             </h5>
             <p className="empresa-rut mb-1">
