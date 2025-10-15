@@ -386,3 +386,21 @@
     color: var(--color-primary) !important;
   }
 }
+.nav-tabs .nav-link {
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-primary);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+.nav-tabs .nav-link:hover {
+  color: var(--color-primary);
+  background: transparent;
+}
+.nav-tabs .nav-link.active {
+  color: var(--color-primary);
+  background: transparent;
+  border-bottom-color: var(--color-primary);
+}
+.progress { background-color: var(--color-border-light); }
+.progress-bar { background: var(--gradient-primary); }

@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { EmpresaCard } from './EmpresaCard'
 import { EmpresaListItem } from './EmpresaListItem'
 import { Pagination } from './Pagination'
@@ -25,6 +26,7 @@ export const EmpresaGrid: React.FC<EmpresaGridProps> = ({
   loading = false,
 }) => {
   const totalPages = Math.ceil(totalCount / pageSize)
+  const navigate = useNavigate()
 
   if (loading) {
     return (
@@ -47,6 +49,12 @@ export const EmpresaGrid: React.FC<EmpresaGridProps> = ({
         <p className="text-muted">
           Intenta ajustar los filtros de búsqueda o crear una nueva empresa.
         </p>
+        <button
+          className="btn btn-primary mt-3"
+          onClick={() => navigate('/configuracion-empresa')}
+        >
+          Ir al formulario de Onboarding
+        </button>
       </div>
     )
   }

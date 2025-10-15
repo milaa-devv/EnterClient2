@@ -85,21 +85,30 @@ export interface DatosComercial {
 
 // === Datos Onboarding ===
 export interface ConfiguracionEmpresa {
-  formato_impresion: 'TERMICA' | 'LASER'
-  casilla_intercambio: string
-  replica_password: string
-  empkey: number
+  empkey?: string
+  replica_password?: string
+  pass?: string
+  encargado_fa?: string
+  terminal_id?: string
+  casilla_intercambio?: string
   url_visto_bueno?: string
   url_membrete?: string
-  layout: 'CUSTOM' | 'ESTANDAR'
-  layout_opciones?: string[]
-  dte_habilitados: string[]
-  tipo_integracion?: string[] | string
-  otros?: string
-  version_mensaje?: string
+  layout?: string
+  formato_impresion?: string
+  dte_habilitados?: string[]
   version_emisor?: string
   version_app_full?: string
   version_winplugin?: string
+  modalidad_firma?: string
+  modalidad_emision?: string
+  admin_folios?: string
+  inventario?: string
+  integracion?: string
+  tipo_ws?: string
+  tipo_texto?: string
+  parser?: string
+  otros?: string
+  boxes?: any[]
 }
 
 export interface DatosOnboarding {
