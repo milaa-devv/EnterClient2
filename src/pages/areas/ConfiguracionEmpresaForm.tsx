@@ -13,11 +13,61 @@ type StepKey =
   | "sucursales"
   | "resumen";
 
+/** Productos internos (claves) */
+type ProductoKey = "ENTERFAC" | "ANDESPOS" | "ANDESPOS_ENTERBOX" | "LCE";
+
+/** Etiquetas visibles */
+const PRODUCT_LABEL: Record<ProductoKey, string> = {
+  ENTERFAC: "Enterfact",
+  ANDESPOS: "AndesPOS",
+  ANDESPOS_ENTERBOX: "AndesPOS Enterbox",
+  LCE: "LCE",
+};
+
+/** DTEs (catálogo) */
+type DteKey =
+  | "33" | "34" | "46" | "52" | "56" | "61" | "39" | "41" | "43"
+  | "110" | "111" | "112"
+  | "Comanda" | "TNT";
+type GrupoDte = "Nacionales" | "Exportación" | "No tributarios";
+
+const DTE_CATALOGO: Record<GrupoDte, { id: DteKey; nombre: string }[]> = {
+  Nacionales: [
+    { id: "33", nombre: "Factura Afecta" },
+    { id: "34", nombre: "Factura Exenta" },
+    { id: "46", nombre: "Factura de Compra" },
+    { id: "52", nombre: "Guía de Despacho" },
+    { id: "56", nombre: "Nota de Débito" },
+    { id: "61", nombre: "Nota de Crédito" },
+    { id: "39", nombre: "Boleta Afecta" },
+    { id: "41", nombre: "Boleta Exenta" },
+    { id: "43", nombre: "Liquidación de Factura" },
+  ],
+  Exportación: [
+    { id: "110", nombre: "Factura Electrónica de Exportación" },
+    { id: "111", nombre: "Nota de Débito de Exportación" },
+    { id: "112", nombre: "Nota de Crédito de Exportación" },
+  ],
+  "No tributarios": [
+    { id: "Comanda", nombre: "Comanda" },
+    { id: "TNT", nombre: "Ticket No Tributario" },
+  ],
+};
+
+const LAYOUTS_ENTERFACT = [
+  { key: "Layout 1", nombre: "Layout 1", url: "" },
+  { key: "Layout 2", nombre: "Layout 2", url: "" },
+  { key: "Layout 3", nombre: "Layout 3", url: "" },
+] as const;
+
+/** Modalidades */
+type ModalidadEnterfac = "Online" | "Online Web" | "Offline" | "Offline Web" | "Ciega";
+type ModalidadAndes = "Offline Web" | "Ciega";
+
 /* ============== Helpers UI ============== */
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h4 className="font-primary mb-3"
-      style={{ fontSize: "1.25rem", fontWeight: 600 }}>
+    <h4 className="font-primary mb-3" style={{ fontSize: "1.25rem", fontWeight: 600 }}>
       {children}
     </h4>
   );
@@ -25,8 +75,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function PageHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="font-primary text-gradient mb-3"
-      style={{ fontSize: "2rem", fontWeight: 700 }}>
+    <h2 className="font-primary text-gradient mb-3" style={{ fontSize: "2rem", fontWeight: 700 }}>
       {children}
     </h2>
   );
@@ -34,10 +83,7 @@ function PageHeading({ children }: { children: React.ReactNode }) {
 
 function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
-    <label
-      className={`form-label font-primary ${required ? "required" : ""}`}
-      style={{ fontSize: ".875rem", fontWeight: 600 }}
-    >
+    <label className={`form-label font-primary ${required ? "required" : ""}`} style={{ fontSize: ".875rem", fontWeight: 600 }}>
       {children}
     </label>
   );
@@ -45,16 +91,8 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (
-    <span
-      className="px-2 py-1 me-2 mb-2 d-inline-block"
-      style={{
-        background: "var(--color-border-light)",
-        border: "1px solid var(--color-border)",
-        borderRadius: 999,
-        fontSize: ".8rem",
-        fontWeight: 600
-      }}
-    >
+    <span className="px-2 py-1 me-2 mb-2 d-inline-block"
+      style={{ background: "var(--color-border-light)", border: "1px solid var(--color-border)", borderRadius: 999, fontSize: ".8rem", fontWeight: 600 }}>
       {children}
     </span>
   );
@@ -76,10 +114,7 @@ function Tabs({ value, onValueChange, children }: { value?: string; onValueChang
   const [internal, setInternal] = useState(value ?? "productos");
   const idBase = useId();
   useEffect(() => { if (value !== undefined) setInternal(value); }, [value]);
-  const setValue = useCallback(
-    (v: string) => { onValueChange ? onValueChange(v) : setInternal(v); },
-    [onValueChange]
-  );
+  const setValue = useCallback((v: string) => { onValueChange ? onValueChange(v) : setInternal(v); }, [onValueChange]);
   const valuesRef = useRef<string[]>([]);
   const ctx = useMemo(() => ({ value: internal, setValue, valuesRef, idBase }), [internal, setValue, idBase]);
   return <TabsCtx.Provider value={ctx}>{children}</TabsCtx.Provider>;
@@ -96,11 +131,8 @@ function TabsTrigger({ value, children }: { value: string; children: React.React
   return (
     <li className="nav-item" role="presentation">
       <button
-        type="button"
-        role="tab"
-        aria-selected={active}
-        aria-controls={`${ctx.idBase}-panel-${value}`}
-        id={`${ctx.idBase}-tab-${value}`}
+        type="button" role="tab" aria-selected={active}
+        aria-controls={`${ctx.idBase}-panel-${value}`} id={`${ctx.idBase}-tab-${value}`}
         className={"nav-link" + (active ? " active" : "")}
         onClick={() => ctx.setValue(value)}
         onKeyDown={(e) => {
@@ -109,9 +141,7 @@ function TabsTrigger({ value, children }: { value: string; children: React.React
             const vals = ctx.valuesRef.current;
             const i = vals.indexOf(ctx.value);
             if (i >= 0 && vals.length > 1) {
-              ctx.setValue(e.key === "ArrowRight"
-                ? vals[(i + 1) % vals.length]
-                : vals[(i - 1 + vals.length) % vals.length]);
+              ctx.setValue(e.key === "ArrowRight" ? vals[(i + 1) % vals.length] : vals[(i - 1 + vals.length) % vals.length]);
             }
           }
         }}
@@ -126,13 +156,7 @@ function TabsContent({ value, children }: { value: string; children: React.React
   const ctx = useContext(TabsCtx)!;
   const hidden = ctx.value !== value;
   return (
-    <div
-      role="tabpanel"
-      id={`${ctx.idBase}-panel-${value}`}
-      aria-labelledby={`${ctx.idBase}-tab-${value}`}
-      hidden={hidden}
-      className="card shadow-sm mb-4"
-    >
+    <div role="tabpanel" id={`${ctx.idBase}-panel-${value}`} aria-labelledby={`${ctx.idBase}-tab-${value}`} hidden={hidden} className="card shadow-sm mb-4">
       {!hidden && <div className="card-body">{children}</div>}
     </div>
   );
@@ -141,7 +165,8 @@ function TabsContent({ value, children }: { value: string; children: React.React
 /* ===== Validadores ===== */
 const onlyDigits = (s: string) => s.replace(/\D+/g, "");
 const onlyAlnum = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "");
-
+const isPdf = (file: File) => !!file && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
+const isValidUrl = (u: string) => { try { new URL(u); return true; } catch { return false; } };
 /* ================= Form principal ================= */
 type Props = { empresa?: any; onSave: (data: any) => void };
 
@@ -151,52 +176,91 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
   const navigate = useNavigate();
 
   /* === Estados === */
-  const empresaProducts: string[] =
+  const empresaProducts: ProductoKey[] =
     (empresa?.productos && Array.isArray(empresa.productos) && empresa.productos.length)
       ? empresa.productos
-      : empresa?.producto ? [empresa.producto] : ["ENTERFAC"];
+      : empresa?.producto ? [empresa.producto] as ProductoKey[] : ["ENTERFAC"];
 
-  const [productos, setProductos] = useState<string[]>(empresaProducts);
+  const [productos, setProductos] = useState<ProductoKey[]>(empresaProducts);
 
+  /** Enterfact */
   const [enterfac, setEnterfac] = useState<any>({
     empkey: "", replica_password: "", pass: "", casilla_intercambio: "",
-    url_visto_bueno: "", url_membrete: "", layout: "ESTANDAR", dte_habilitados: [],
+    url_visto_bueno: null as File | null, url_membrete: "",
+    layout: "ESTANDAR", layout_key: "", url_layout_selected: "", url_layout_custom: "",
+    dte_habilitados: [] as DteKey[],
     integracion: "", tipo_ws: "", tipo_texto: "", parser: "",
-    modalidad_firma: "CONTROLADA", modalidad_emision: "ONLINE", admin_folios: "EN",
+    modalidad_firma: "CONTROLADA", admin_folios: "EN",
     version_emisor: "", version_app_full: "", version_winplugin: "", version_winbatch: "",
+    version_win_emisor_ws: "",
     ...empresa?.onboarding?.configuracionEmpresa?.enterfac,
   });
 
+  /** AndesPOS / Enterbox comparten estructura */
   const [andespos, setAndespos] = useState<any>({
     empkey: "", replica_password: "", pass: "", encargado_fa: "", terminal_id: "",
-    layout: "ESTANDAR", formato_impresion: "LASER", inventario: "",
-    modalidad_firma: "CONTROLADA", modalidad_emision: "ONLINE", admin_folios: "EN",
-    version_emisor: "", version_app_full: "", version_winplugin: "", version_winbatch: "",
+    layout_url: "", formato_impresion: "LASER", inventario: "",
+    modalidad_firma: "CONTROLADA", admin_folios: "EN",
+    version_emisor: "", tipo_texto: "", dte_habilitados: [] as DteKey[],
     ...empresa?.onboarding?.configuracionEmpresa?.andespos,
   });
 
-  const [filePreview, setFilePreview] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string>("");
+  /** Modalidad por documento (Enterfact) */
+  const [enterfacGeneral, setEnterfacGeneral] = useState<"" | ModalidadEnterfac>("");
+  type EnterfacPorDoc = Partial<Record<DteKey, ModalidadEnterfac>>;
+  const [enterfacPorDoc, setEnterfacPorDoc] = useState<EnterfacPorDoc>({});
 
+  useEffect(() => {
+    if (!enterfacGeneral) return;
+    setEnterfacPorDoc((prev) => {
+      const copy: EnterfacPorDoc = { ...prev };
+      const seleccionados = (enterfac.dte_habilitados || []) as DteKey[];
+      seleccionados.forEach((k) => { if (!copy[k]) copy[k] = enterfacGeneral as ModalidadEnterfac; });
+      return copy;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enterfacGeneral]);
+
+  /** Modalidad por documento (Andes) */
+  const [andesGeneral, setAndesGeneral] = useState<"" | ModalidadAndes>("");
+  type AndesPorDoc = Partial<Record<DteKey, ModalidadAndes>>;
+  const [andesPorDoc, setAndesPorDoc] = useState<AndesPorDoc>({});
+  useEffect(() => {
+    if (!andesGeneral) return;
+    setAndesPorDoc((prev) => {
+      const copy: AndesPorDoc = { ...prev };
+      const seleccionados = (andespos.dte_habilitados || []) as DteKey[];
+      seleccionados.forEach((k) => { if (!copy[k]) copy[k] = andesGeneral as ModalidadAndes; });
+      return copy;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [andesGeneral]);
+
+  /** Batch (Enterfact) — sin previsualización */
+  type Codificacion = "ANSI" | "UTF-8";
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [batchError, setBatchError] = useState("");
+  const [codificacion, setCodificacion] = useState<Codificacion>("ANSI");
+
+  /** Visto Bueno (solo PDF) */
+  const [filePreview, setFilePreview] = useState<string>("");
+  const [fileError, setFileError] = useState<string>("");
+
+  /** Sucursales (solo Enterbox) */
   const [boxes, setBoxes] = useState<any[]>(empresa?.onboarding?.configuracionEmpresa?.boxes || []);
 
+  /* === Pasos (Step) === */
   const STEPS: StepKey[] = useMemo(() => {
     const arr: StepKey[] = ["productos", "identificacion", "documentos", "integracion"];
-    if (
-      (productos.includes("ENTERFAC") && ["OFFLINE", "OFFLINEWEB"].includes(enterfac.modalidad_emision)) ||
-      (productos.includes("ANDESPOS") && ["OFFLINE", "OFFLINEWEB"].includes(andespos.modalidad_emision))
-    ) {
-      arr.push("sucursales");
-    }
+    if (productos.includes("ANDESPOS_ENTERBOX")) arr.push("sucursales");
     arr.push("resumen");
     return arr;
-  }, [productos, enterfac.modalidad_emision, andespos.modalidad_emision]);
+  }, [productos]);
 
   const [current, setCurrent] = useState<StepKey>(() => {
     const q = search.get("step") as StepKey | null;
     return (q && (["productos", "identificacion", "documentos", "integracion", "sucursales", "resumen"] as const).includes(q))
-      ? q
-      : "productos";
+      ? q : "productos";
   });
 
   useEffect(() => {
@@ -205,7 +269,7 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
       setCurrent(first);
       setSearch((sp) => { sp.set("step", first); return sp; }, { replace: true });
     }
-  }, [STEPS]);
+  }, [STEPS]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const go = useCallback((key: StepKey) => {
     setCurrent(key);
@@ -223,258 +287,393 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
     if (i > 0) go(STEPS[i - 1]);
   }, [STEPS, current, go]);
 
-  const stepValid: Record<StepKey, boolean> = useMemo(() => ({
-    productos: productos.length > 0,
-    identificacion: (!!enterfac.empkey && !!enterfac.replica_password && !!enterfac.pass),
-    documentos: true,
-    integracion: true,
-    sucursales: true,
-    resumen: true,
-  }), [productos, enterfac]);
+  /** Validación por paso */
+  const stepValid: Record<StepKey, boolean> = useMemo(() => {
+    const needEF = productos.includes("ENTERFAC");
+    const needAP = productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX");
+    const okEF = !needEF || (!!enterfac.empkey && !!enterfac.replica_password && !!enterfac.pass);
+    const okAP = !needAP || (!!andespos.empkey && !!andespos.replica_password && !!andespos.pass);
+    return {
+      productos: productos.length > 0,
+      identificacion: okEF && okAP,
+      documentos: true,
+      integracion: true,
+      sucursales: true,
+      resumen: true,
+    };
+  }, [productos, enterfac, andespos]);
 
   const progress = ((STEPS.indexOf(current) + 1) / STEPS.length) * 100;
 
-  const toggleProducto = (key: "ENTERFAC" | "ANDESPOS" | "LCE") => {
-    setProductos((prev) =>
-      prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key]
-    );
+  /* === Reglas de productos: exclusividad AndesPOS vs Enterbox === */
+  const toggleProducto = (key: ProductoKey) => {
+    setProductos((prev) => {
+      const has = prev.includes(key);
+      let next = has ? prev.filter((p) => p !== key) : [...prev, key];
+      if (!has) {
+        if (key === "ANDESPOS") next = next.filter((p) => p !== "ANDESPOS_ENTERBOX");
+        if (key === "ANDESPOS_ENTERBOX") next = next.filter((p) => p !== "ANDESPOS");
+      }
+      return next;
+    });
   };
 
+  /* === Handlers === */
+  const handleVistoBueno = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!isPdf(file)) {
+      setFileError("Solo se permite PDF.");
+      setEnterfac((p: any) => ({ ...p, url_visto_bueno: null }));
+      setFilePreview("");
+      return;
+    }
+    setFileError("");
+    const url = URL.createObjectURL(file);
+    setFilePreview(url);
+    setEnterfac((p: any) => ({ ...p, url_visto_bueno: file }));
+  };
+
+  const handleCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setBatchError("");
+    if (!file) { setCsvFile(null); return; }
+    const isCsv = /\.csv$/i.test(file.name) || file.type.includes("csv");
+    if (!isCsv) { setBatchError("Solo se permiten archivos .csv"); setCsvFile(null); return; }
+    setCsvFile(file);
+  };
+
+  /* === Guardar === */
   const save = () => {
-    const payload = { productos, enterfac, andespos, boxes };
+    // Validaciones layout EF
+    if (productos.includes("ENTERFAC")) {
+      if (enterfac.layout === "ESTANDAR") {
+        if (!enterfac.layout_key) return alert("Debes seleccionar un layout estándar.");
+        if (!enterfac.url_layout_selected || !isValidUrl(enterfac.url_layout_selected)) {
+          return alert("La URL del layout seleccionado es obligatoria y válida.");
+        }
+      } else {
+        if (!enterfac.url_layout_custom || !isValidUrl(enterfac.url_layout_custom)) {
+          return alert("La URL del layout Custom es obligatoria y válida.");
+        }
+      }
+      if (!enterfac.integracion) return alert("Selecciona el tipo de integración para Enterfact.");
+      if (enterfac.integracion === "Batch") {
+        if (!csvFile) return alert("Debes subir un archivo .csv para Batch.");
+        if (batchError) return alert(batchError);
+      }
+    }
+
+    const payload = {
+      productos,
+      enterfac: {
+        ...enterfac,
+        dte_habilitados: enterfac.dte_habilitados,
+        layout: enterfac.layout,
+        layout_key: enterfac.layout_key,
+        url_layout_selected: enterfac.url_layout_selected,
+        url_layout_custom: enterfac.url_layout_custom,
+        integracion: enterfac.integracion,
+        modalidades: {
+          general: enterfacGeneral || null,
+          porDocumento: enterfacPorDoc,
+        },
+        versiones: {
+          appFull: enterfac.version_app_full,
+          winPlugin: enterfac.version_winplugin,
+          winEmisor: enterfac.version_emisor,
+          winEmisorWS: enterfac.version_win_emisor_ws,
+          winBatch: enterfac.version_winbatch,
+        },
+        batch: enterfac.integracion === "Batch" ? { codificacion, csvNombre: csvFile?.name ?? null } : null,
+      },
+      andespos: {
+        ...andespos,
+        modalidades: {
+          general: andesGeneral || null,
+          porDocumento: andesPorDoc,
+        },
+      },
+      boxes: productos.includes("ANDESPOS_ENTERBOX") ? boxes : [],
+    };
+
     onSave?.(payload);
     if (empresa?.empkey) navigate(`/empresa/${empresa.empkey}`);
+    else alert("Configuración guardada (ver payload en onSave).");
   };
   /* === Render Productos === */
   const renderProductos = () => (
     <div>
       <SectionTitle>Productos contratados</SectionTitle>
       <div className="d-flex gap-3 flex-wrap">
-        {["ENTERFAC", "ANDESPOS", "LCE"].map(p => (
+        {(["ENTERFAC", "ANDESPOS", "ANDESPOS_ENTERBOX", "LCE"] as ProductoKey[]).map(p => (
           <div className="form-check" key={p}>
             <input className="form-check-input" type="checkbox" id={`p-${p.toLowerCase()}`}
-              checked={productos.includes(p)} onChange={() => toggleProducto(p as any)} />
-            <label className="form-check-label" htmlFor={`p-${p.toLowerCase()}`}>{p}</label>
+              checked={productos.includes(p)} onChange={() => toggleProducto(p)} />
+            <label className="form-check-label" htmlFor={`p-${p.toLowerCase()}`}>{PRODUCT_LABEL[p]}</label>
           </div>
         ))}
       </div>
-      <small className="text-muted d-block mt-2">Puedes marcar uno o varios productos contratados.</small>
+      <small className="text-muted d-block mt-2">Puedes marcar uno o varios productos.</small>
     </div>
   );
 
   /* === Render Identificación === */
-   const renderIdentificacion = () => (
-    <div>
-      <SectionTitle>Identificación</SectionTitle>
+  const renderIdentificacion = () => {
+    const showTerminal = productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX");
+    const titulo = (productos.length === 1 && productos.includes("ANDESPOS"))
+      ? "ANDESPOS" : "ENTERFAC / ANDESPOS";
+    return (
+      <div>
+        <SectionTitle>Identificación</SectionTitle>
 
-      {(productos.includes("ENTERFAC") || productos.includes("ANDESPOS")) && (
-        <div className="border rounded p-3 mb-3">
-          <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>
-            {productos.length === 1 && productos.includes("ANDESPOS") ? "ANDESPOS" : "ENTERFAC / ANDESPOS"}
-          </h6>
-          <div className="row g-3">
+        {(productos.includes("ENTERFAC") || productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) && (
+          <div className="border rounded p-3 mb-3">
+            <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>{titulo}</h6>
+            <div className="row g-3">
+              <div className="col-md-4">
+                <FieldLabel required>Empkey</FieldLabel>
+                <input className="form-control" inputMode="numeric" pattern="\\d*"
+                  value={(productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) ? andespos.empkey : enterfac.empkey}
+                  onChange={e => {
+                    if (productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX"))
+                      setAndespos((p: any) => ({ ...p, empkey: onlyDigits(e.target.value) }));
+                    else
+                      setEnterfac((p: any) => ({ ...p, empkey: onlyDigits(e.target.value) }));
+                  }} />
+              </div>
 
-            {/* === Campos comunes (Empkey, ReplicaPass, Pass, Casilla) === */}
-            <div className="col-md-4">
-              <FieldLabel required>Empkey</FieldLabel>
-              <input className="form-control" inputMode="numeric" pattern="\\d*"
-                value={productos.includes("ANDESPOS") ? andespos.empkey : enterfac.empkey}
-                onChange={e => {
-                  if (productos.includes("ANDESPOS") && !productos.includes("ENTERFAC"))
-                    setAndespos((p: any) => ({ ...p, empkey: onlyDigits(e.target.value) }));
-                  else
-                    setEnterfac((p: any) => ({ ...p, empkey: onlyDigits(e.target.value) }));
-                }} />
-            </div>
+              <div className="col-md-4">
+                <FieldLabel required>ReplicaPass</FieldLabel>
+                <input className="form-control"
+                  value={(productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) ? andespos.replica_password : enterfac.replica_password}
+                  onChange={e => {
+                    if (productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX"))
+                      setAndespos((p: any) => ({ ...p, replica_password: onlyAlnum(e.target.value) }));
+                    else
+                      setEnterfac((p: any) => ({ ...p, replica_password: onlyAlnum(e.target.value) }));
+                  }} />
+              </div>
 
-            <div className="col-md-4">
-              <FieldLabel required>ReplicaPass</FieldLabel>
-              <input className="form-control"
-                value={productos.includes("ANDESPOS") ? andespos.replica_password : enterfac.replica_password}
-                onChange={e => {
-                  if (productos.includes("ANDESPOS") && !productos.includes("ENTERFAC"))
-                    setAndespos((p: any) => ({ ...p, replica_password: onlyAlnum(e.target.value) }));
-                  else
-                    setEnterfac((p: any) => ({ ...p, replica_password: onlyAlnum(e.target.value) }));
-                }} />
-            </div>
+              <div className="col-md-4">
+                <FieldLabel required>Pass</FieldLabel>
+                <input className="form-control"
+                  value={(productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) ? andespos.pass : enterfac.pass}
+                  onChange={e => {
+                    if (productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX"))
+                      setAndespos((p: any) => ({ ...p, pass: onlyAlnum(e.target.value) }));
+                    else
+                      setEnterfac((p: any) => ({ ...p, pass: onlyAlnum(e.target.value) }));
+                  }} />
+              </div>
 
-            <div className="col-md-4">
-              <FieldLabel required>Pass</FieldLabel>
-              <input className="form-control"
-                value={productos.includes("ANDESPOS") ? andespos.pass : enterfac.pass}
-                onChange={e => {
-                  if (productos.includes("ANDESPOS") && !productos.includes("ENTERFAC"))
-                    setAndespos((p: any) => ({ ...p, pass: onlyAlnum(e.target.value) }));
-                  else
-                    setEnterfac((p: any) => ({ ...p, pass: onlyAlnum(e.target.value) }));
-                }} />
-            </div>
+              <div className="col-md-6">
+                <FieldLabel>Casilla de intercambio (opcional)</FieldLabel>
+                <input className="form-control"
+                  value={(productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) ? (andespos.casilla_intercambio || "") : (enterfac.casilla_intercambio || "")}
+                  onChange={e => {
+                    if (productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX"))
+                      setAndespos((p: any) => ({ ...p, casilla_intercambio: e.target.value }));
+                    else
+                      setEnterfac((p: any) => ({ ...p, casilla_intercambio: e.target.value }));
+                  }} />
+              </div>
 
-            <div className="col-md-6">
-              <FieldLabel>Casilla de intercambio (opcional)</FieldLabel>
-              <input className="form-control"
-                value={productos.includes("ANDESPOS") ? andespos.casilla_intercambio || "" : enterfac.casilla_intercambio || ""}
-                onChange={e => {
-                  if (productos.includes("ANDESPOS") && !productos.includes("ENTERFAC"))
-                    setAndespos((p: any) => ({ ...p, casilla_intercambio: e.target.value }));
-                  else
-                    setEnterfac((p: any) => ({ ...p, casilla_intercambio: e.target.value }));
-                }} />
-            </div>
-
-            {/* === Campos exclusivos de AndesPOS === */}
-            {(productos.includes("ANDESPOS")) && (
-              <>
-                <div className="col-md-3">
-                  <FieldLabel>Encargado FA</FieldLabel>
-                  <input className="form-control" value={andespos.encargado_fa}
-                    onChange={e => setAndespos((p: any) => ({ ...p, encargado_fa: e.target.value }))} />
-                </div>
-
+              {showTerminal && (
                 <div className="col-md-3">
                   <FieldLabel>Terminal ID</FieldLabel>
                   <input className="form-control" value={andespos.terminal_id}
                     onChange={e => setAndespos((p: any) => ({ ...p, terminal_id: e.target.value }))} />
                 </div>
-              </>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-
+        )}
+      </div>
+    );
+  };
 
   /* === Render Documentos === */
   const renderDocumentos = () => {
-    const DTEsNacionales = [
-      { id: "33", nombre: "Factura Afecta" },
-      { id: "34", nombre: "Factura Exenta" },
-      { id: "39", nombre: "Boleta Afecta" },
-      { id: "41", nombre: "Boleta Exenta" },
-      { id: "52", nombre: "Guía de Despacho" },
-      { id: "61", nombre: "Nota de Crédito" },
-      { id: "56", nombre: "Nota de Débito" },
-    ];
-    const DTEsExportacion = [
-      { id: "110", nombre: "Factura de Exportación" },
-      { id: "111", nombre: "Nota de Débito de Exportación" },
-      { id: "112", nombre: "Nota de Crédito de Exportación" },
-    ];
-    const DTEsNoTributarios = [
-      { id: "Comanda", nombre: "Comanda" },
-      { id: "TNT", nombre: "Ticket No Tributario" },
-    ];
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        setFileName(file.name);
-        const fileURL = URL.createObjectURL(file);
-        setFilePreview(fileURL);
-        setEnterfac((p: any) => ({ ...p, url_visto_bueno: file }));
-      }
-    };
+    const labelDte = (d: { id: DteKey; nombre: string }) =>
+      (d.id === "Comanda" || d.id === "TNT") ? d.nombre : `${d.nombre} (${d.id})`;
 
     return (
       <div>
         <SectionTitle>Documentos & Layout</SectionTitle>
 
+        {/* ENTERFACT */}
         {productos.includes("ENTERFAC") && (
           <div className="border rounded p-3 mb-3">
-            <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>ENTERFAC</h6>
+            <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>ENTERFACT</h6>
             <div className="row g-3">
+              {/* Visto Bueno (solo PDF) */}
               <div className="col-md-6">
-                <FieldLabel>Archivo Visto Bueno (PDF o Word)</FieldLabel>
-                <input type="file" accept=".pdf,.doc,.docx" className="form-control" onChange={handleFileChange} />
+                <FieldLabel>Archivo Visto Bueno (solo PDF)</FieldLabel>
+                <input type="file" accept="application/pdf,.pdf" className="form-control" onChange={handleVistoBueno} />
+                {fileError && <div className="invalid-feedback d-block">{fileError}</div>}
                 {filePreview && (
                   <div className="mt-3">
-                    {fileName.endsWith(".pdf") ? (
-                      <iframe src={filePreview} width="100%" height="400px" title="Vista previa del PDF" />
-                    ) : (
-                      <p className="text-muted">
-                        <i className="bi bi-file-earmark-word me-2"></i>
-                        Archivo cargado: {fileName}
-                      </p>
-                    )}
+                    <iframe src={filePreview} width="100%" height="400px" title="Vista previa del PDF" />
                   </div>
                 )}
               </div>
+
               <div className="col-md-6">
                 <FieldLabel>URL Membrete</FieldLabel>
                 <input className="form-control" placeholder="https://..." type="url"
-                  value={enterfac.url_membrete} onChange={e => setEnterfac((p: any) => ({ ...p, url_membrete: e.target.value }))} />
+                  value={enterfac.url_membrete}
+                  onChange={e => setEnterfac((p: any) => ({ ...p, url_membrete: e.target.value }))} />
               </div>
 
-              <div className="col-md-4">
-                <FieldLabel>Layout</FieldLabel>
-                <select className="form-select" value={enterfac.layout}
-                  onChange={e => setEnterfac((p: any) => ({ ...p, layout: e.target.value }))}>
-                  <option value="ESTANDAR">Estándar</option>
-                  <option value="CUSTOM">Customizado</option>
-                </select>
+              {/* Layout Enterfact */}
+              <div className="col-12 mt-2">
+                <FieldLabel>Tipo de Layout</FieldLabel>
+                <div className="d-flex gap-3">
+                  <div className="form-check">
+                    <input className="form-check-input" type="radio" id="ly-est"
+                      checked={enterfac.layout === "ESTANDAR"}
+                      onChange={() => setEnterfac((p: any) => ({ ...p, layout: "ESTANDAR", url_layout_custom: "" }))} />
+                    <label className="form-check-label" htmlFor="ly-est">Estandar</label>
+                  </div>
+                  <div className="form-check">
+                    <input className="form-check-input" type="radio" id="ly-cus"
+                      checked={enterfac.layout === "CUSTOM"}
+                      onChange={() => setEnterfac((p: any) => ({ ...p, layout: "CUSTOM", layout_key: "", url_layout_selected: "" }))} />
+                    <label className="form-check-label" htmlFor="ly-cus">Custom</label>
+                  </div>
+                </div>
               </div>
+
+              {enterfac.layout === "ESTANDAR" && (
+                <>
+                  <div className="col-md-6">
+                    <FieldLabel>Seleccionar Layout</FieldLabel>
+                    <select className="form-select" value={enterfac.layout_key}
+                      onChange={e => {
+                        const key = e.target.value;
+                        const found = LAYOUTS_ENTERFACT.find(l => l.key === key);
+                        setEnterfac((p: any) => ({ ...p, layout_key: key, url_layout_selected: found?.url ?? "" }));
+                      }}>
+                      <option value="">Seleccione layout...</option>
+                      {LAYOUTS_ENTERFACT.map(l => <option key={l.key} value={l.key}>{l.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div className="col-md-6">
+                    <FieldLabel>URL del layout seleccionado</FieldLabel>
+                    <input className="form-control" placeholder="https://..." type="url"
+                      value={enterfac.url_layout_selected}
+                      onChange={e => setEnterfac((p: any) => ({ ...p, url_layout_selected: e.target.value }))} />
+                  </div>
+                </>
+              )}
 
               {enterfac.layout === "CUSTOM" && (
-                <div className="col-md-8">
-                  <FieldLabel>URL del Layout</FieldLabel>
+                <div className="col-md-12">
+                  <FieldLabel>URL del Layout personalizado</FieldLabel>
                   <input className="form-control" placeholder="https://..." type="url"
-                    value={enterfac.url_layout_custom || ""}
+                    value={enterfac.url_layout_custom}
                     onChange={e => setEnterfac((p: any) => ({ ...p, url_layout_custom: e.target.value }))} />
                 </div>
               )}
 
+              {/* DTE Habilitados – Nacionales */}
               <div className="col-12 mt-3">
                 <FieldLabel>DTE Habilitados – Nacionales</FieldLabel>
                 <div className="row gy-2">
-                  {DTEsNacionales.map(dte => (
-                    <div className="col-md-4 col-lg-3" key={dte.id}>
+                  {DTE_CATALOGO["Nacionales"].map(d => (
+                    <div className="col-md-4 col-lg-3" key={d.id}>
                       <input type="checkbox" className="form-check-input me-2"
-                        checked={enterfac.dte_habilitados?.includes(dte.id) || false}
+                        checked={enterfac.dte_habilitados?.includes(d.id) || false}
                         onChange={e => {
                           const curr = enterfac.dte_habilitados || [];
                           setEnterfac((p: any) => ({
                             ...p,
                             dte_habilitados: e.target.checked
-                              ? [...curr, dte.id]
-                              : curr.filter((id: string) => id !== dte.id),
+                              ? [...curr, d.id]
+                              : curr.filter((id: DteKey) => id !== d.id),
                           }));
                         }} />
-                      {dte.nombre}
+                      {labelDte(d)}
                     </div>
                   ))}
                 </div>
               </div>
 
+              {/* DTE Habilitados – Exportación */}
               <div className="col-12 mt-3">
                 <FieldLabel>DTE Habilitados – Exportación</FieldLabel>
                 <div className="row gy-2">
-                  {DTEsExportacion.map(dte => (
-                    <div className="col-md-4 col-lg-3" key={dte.id}>
+                  {DTE_CATALOGO["Exportación"].map(d => (
+                    <div className="col-md-4 col-lg-3" key={d.id}>
                       <input type="checkbox" className="form-check-input me-2"
-                        checked={enterfac.dte_habilitados?.includes(dte.id) || false}
+                        checked={enterfac.dte_habilitados?.includes(d.id) || false}
                         onChange={e => {
                           const curr = enterfac.dte_habilitados || [];
                           setEnterfac((p: any) => ({
                             ...p,
                             dte_habilitados: e.target.checked
-                              ? [...curr, dte.id]
-                              : curr.filter((id: string) => id !== dte.id),
+                              ? [...curr, d.id]
+                              : curr.filter((id: DteKey) => id !== d.id),
                           }));
                         }} />
-                      {dte.nombre}
+                      {labelDte(d)}
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Modalidad de Emisión — ENTERFACT (General + overrides) */}
+              <div className="col-12 mt-4">
+                <FieldLabel>Modalidad de Emisión — General (por documento)</FieldLabel>
+                <select
+                  className="form-select mb-3"
+                  value={enterfacGeneral}
+                  onChange={(e) => setEnterfacGeneral(e.target.value as "" | ModalidadEnterfac)}
+                >
+                  <option value="">(Sin general)</option>
+                  <option value="Online">Online</option>
+                  <option value="Online Web">Online Web</option>
+                  <option value="Offline">Offline</option>
+                  <option value="Offline Web">Offline Web</option>
+                  <option value="Ciega">Ciega</option>
+                </select>
+
+                {((enterfac.dte_habilitados || []) as DteKey[]).map((id) => {
+                  const meta = [...DTE_CATALOGO["Nacionales"], ...DTE_CATALOGO["Exportación"]].find(x => x.id === id);
+                  if (!meta) return null;
+                  const label = `${meta.nombre} (${meta.id})`;
+                  return (
+                    <div key={id} className="row g-2 align-items-center mb-2">
+                      <div className="col-md-6">{label}</div>
+                      <div className="col-md-6">
+                        <select
+                          className="form-select"
+                          value={enterfacPorDoc[id] || ""}
+                          onChange={(e) => setEnterfacPorDoc((prev) => ({ ...prev, [id]: e.target.value as ModalidadEnterfac }))}
+                        >
+                          <option value="">{`(Usar General${enterfacGeneral ? `: ${enterfacGeneral}` : ""})`}</option>
+                          <option value="Online">Online</option>
+                          <option value="Online Web">Online Web</option>
+                          <option value="Offline">Offline</option>
+                          <option value="Offline Web">Offline Web</option>
+                          <option value="Ciega">Ciega</option>
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
 
-        {productos.includes("ANDESPOS") && (
+        {/* ANDESPOS / ENTERBOX */}
+        {(productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) && (
           <div className="border rounded p-3">
-            <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>ANDESPOS</h6>
+            <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>
+              {productos.includes("ANDESPOS_ENTERBOX") ? "ANDESPOS ENTERBOX" : "ANDESPOS"}
+            </h6>
             <div className="row g-3">
               <div className="col-md-4">
                 <FieldLabel>URL del Layout</FieldLabel>
@@ -488,53 +687,90 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                 <select className="form-select" value={andespos.formato_impresion}
                   onChange={e => setAndespos((p: any) => ({ ...p, formato_impresion: e.target.value }))}>
                   <option value="TERMICA">Térmica</option>
-                  <option value="LASER">Láser</option>
+                  <option value="LASER">Láser(Web)</option>
                   <option value="NOIMPRIME">No Imprime</option>
                 </select>
               </div>
 
+              {/* DTE: Nacionales */}
               <div className="col-12 mt-3">
                 <FieldLabel>Documentos Nacionales</FieldLabel>
                 <div className="row gy-2">
-                  {DTEsNacionales.map(dte => (
-                    <div className="col-md-4 col-lg-3" key={dte.id}>
+                  {DTE_CATALOGO["Nacionales"].map(d => (
+                    <div className="col-md-4 col-lg-3" key={d.id}>
                       <input type="checkbox" className="form-check-input me-2"
-                        checked={andespos.dte_habilitados?.includes(dte.id) || false}
+                        checked={andespos.dte_habilitados?.includes(d.id) || false}
                         onChange={e => {
                           const curr = andespos.dte_habilitados || [];
                           setAndespos((p: any) => ({
                             ...p,
                             dte_habilitados: e.target.checked
-                              ? [...curr, dte.id]
-                              : curr.filter((id: string) => id !== dte.id),
+                              ? [...curr, d.id]
+                              : curr.filter((id: DteKey) => id !== d.id),
                           }));
                         }} />
-                      {dte.nombre}
+                      {labelDte(d)}
                     </div>
                   ))}
                 </div>
               </div>
 
+              {/* DTE: No tributarios */}
               <div className="col-12 mt-3">
                 <FieldLabel>Documentos No Tributarios</FieldLabel>
                 <div className="row gy-2">
-                  {DTEsNoTributarios.map(dte => (
-                    <div className="col-md-4 col-lg-3" key={dte.id}>
+                  {DTE_CATALOGO["No tributarios"].map(d => (
+                    <div className="col-md-4 col-lg-3" key={d.id}>
                       <input type="checkbox" className="form-check-input me-2"
-                        checked={andespos.dte_habilitados?.includes(dte.id) || false}
+                        checked={andespos.dte_habilitados?.includes(d.id) || false}
                         onChange={e => {
                           const curr = andespos.dte_habilitados || [];
                           setAndespos((p: any) => ({
                             ...p,
                             dte_habilitados: e.target.checked
-                              ? [...curr, dte.id]
-                              : curr.filter((id: string) => id !== dte.id),
+                              ? [...curr, d.id]
+                              : curr.filter((id: DteKey) => id !== d.id),
                           }));
                         }} />
-                      {dte.nombre}
+                      {labelDte(d)}
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Modalidad de Emisión — ANDES (General + overrides) */}
+              <div className="col-12 mt-3">
+                <FieldLabel>Modalidad de Emisión — General (por documento)</FieldLabel>
+                <select
+                  className="form-select mb-3"
+                  value={andesGeneral}
+                  onChange={(e) => setAndesGeneral(e.target.value as "" | "Offline Web" | "Ciega")}
+                >
+                  <option value="">(Sin general)</option>
+                  <option value="Offline Web">Offline Web</option>
+                  <option value="Ciega">Ciega</option>
+                </select>
+
+                {(andespos.dte_habilitados || []).map((id: DteKey) => {
+                  const meta = [...DTE_CATALOGO["Nacionales"], ...DTE_CATALOGO["No tributarios"]].find(x => x.id === id);
+                  if (!meta) return null;
+                  return (
+                    <div key={id} className="row g-2 align-items-center mb-2">
+                      <div className="col-md-6">{labelDte({ id, nombre: meta.nombre })}</div>
+                      <div className="col-md-6">
+                        <select
+                          className="form-select"
+                          value={andesPorDoc[id] || ""}
+                          onChange={(e) => setAndesPorDoc((prev) => ({ ...prev, [id]: e.target.value as "Offline Web" | "Ciega" }))}
+                        >
+                          <option value="">{`(Usar General${andesGeneral ? `: ${andesGeneral}` : ""})`}</option>
+                          <option value="Offline Web">Offline Web</option>
+                          <option value="Ciega">Ciega</option>
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -547,52 +783,95 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
     <div>
       <SectionTitle>Integración & Versionado</SectionTitle>
 
+      {/* ENTERFACT */}
       {productos.includes("ENTERFAC") && (
         <div className="border rounded p-3 mb-3">
-          <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>ENTERFAC</h6>
+          <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>ENTERFACT</h6>
           <div className="row g-3">
-            <div className="col-md-3">
+            {/* Integración */}
+            <div className="col-md-4">
               <FieldLabel>Tipo de Integración</FieldLabel>
-              <select className="form-select" value={enterfac.tipo_ws}
-                onChange={e => setEnterfac((p: any) => ({ ...p, tipo_ws: e.target.value }))}>
+              <select
+                className="form-select"
+                value={enterfac.integracion}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEnterfac((p: any) => ({
+                    ...p,
+                    integracion: v,
+                    // Regla: con Integración => Cliente ; sin integración (Web) => Enternet
+                    admin_folios: v === "Web" ? "EN" : "CL",
+                    tipo_ws: v === "Web Service" ? p.tipo_ws : "",
+                  }));
+                }}
+              >
                 <option value="">Seleccione</option>
-                <option value="WEB">Web</option>
-                <option value="TRANSFERENCIA">Transferencia de Archivos</option>
-                <option value="WEBSERVICE">Web Service</option>
-                <option value="BATCH">Batch</option>
+                <option value="Transferencia de Archivo">Transferencia de Archivo</option>
+                <option value="Batch">Batch</option>
+                <option value="Web Service">Web Service</option>
+                <option value="Web">Web</option>
               </select>
             </div>
 
-            {enterfac.tipo_ws === "WEBSERVICE" && (
-              <div className="col-md-3">
-                <FieldLabel>Tipo WebService</FieldLabel>
-                <select className="form-select" value={enterfac.integracion}
-                  onChange={e => setEnterfac((p: any) => ({ ...p, integracion: e.target.value }))}>
+            {/* Web Service -> Tipo */}
+            {enterfac.integracion === "Web Service" && (
+              <div className="col-md-4">
+                <FieldLabel>Tipo de Web Service</FieldLabel>
+                <select
+                  className="form-select"
+                  value={enterfac.tipo_ws || ""}
+                  onChange={(e) => setEnterfac((p: any) => ({ ...p, tipo_ws: e.target.value }))}
+                >
                   <option value="">Seleccione</option>
-                  <option value="REST">API Rest</option>
+                  <option value="REST">API REST</option>
                   <option value="SOAP">SOAP</option>
                 </select>
               </div>
             )}
 
+            {/* Batch -> CSV + Codificación (sin preview) */}
+            {enterfac.integracion === "Batch" && (
+              <>
+                <div className="col-md-4">
+                  <FieldLabel>Archivo .csv</FieldLabel>
+                  <input type="file" className="form-control" accept=".csv,text/csv" onChange={handleCsv} />
+                  {batchError && <div className="invalid-feedback d-block">{batchError}</div>}
+                </div>
+                <div className="col-md-4">
+                  <FieldLabel>Codificación</FieldLabel>
+                  <select
+                    className="form-select"
+                    value={codificacion}
+                    onChange={(e) => setCodificacion(e.target.value as "ANSI" | "UTF-8")}
+                  >
+                    <option value="ANSI">ANSI</option>
+                    <option value="UTF-8">UTF-8</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            {/* Tipo de Mensaje */}
             <div className="col-md-3">
               <FieldLabel>Tipo de Mensaje</FieldLabel>
-              <select className="form-select" value={enterfac.tipo_texto}
-                onChange={e => {
+              <select
+                className="form-select"
+                value={enterfac.tipo_texto}
+                onChange={(e) => {
                   const val = e.target.value;
                   let parser = "";
                   if (val === "XMLCUSTOM" || val === "TXTCUSTOM") parser = "SI";
                   if (val === "XMLV5" || val === "TXTV5") parser = "NO";
                   setEnterfac((p: any) => ({ ...p, tipo_texto: val, parser }));
-                }}>
+                }}
+              >
                 <option value="">Seleccione</option>
                 <option value="XMLV5">XML V5</option>
                 <option value="TXTV5">TXT V5</option>
-                <option value="XMLCUSTOM">XML Custom</option>
-                <option value="TXTCUSTOM">TXT Custom</option>
+                <option value="XMLCUSTOM">XML CUSTOM</option>
+                <option value="TXTCUSTOM">TXT CUSTOM</option>
               </select>
             </div>
-
             {enterfac.parser && (
               <div className="col-md-3">
                 <FieldLabel>Parser</FieldLabel>
@@ -600,93 +879,116 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
               </div>
             )}
 
+            {/* Firma */}
             <div className="col-md-3">
               <FieldLabel>Modalidad de Firma</FieldLabel>
-              <select className="form-select" value={enterfac.modalidad_firma}
-                onChange={e => setEnterfac((p: any) => ({ ...p, modalidad_firma: e.target.value }))}>
+              <select
+                className="form-select"
+                value={enterfac.modalidad_firma}
+                onChange={(e) => setEnterfac((p: any) => ({ ...p, modalidad_firma: e.target.value }))}
+              >
                 <option value="NUBE">Nube</option>
                 <option value="LOCAL">Local</option>
               </select>
             </div>
-
             <div className="col-md-3">
               <FieldLabel>Tipo de Firma</FieldLabel>
-              <select className="form-select" value={enterfac.tipo_firma || ""}
-                onChange={e => setEnterfac((p: any) => ({ ...p, tipo_firma: e.target.value }))}>
+              <select
+                className="form-select"
+                value={enterfac.tipo_firma || ""}
+                onChange={(e) => setEnterfac((p: any) => ({ ...p, tipo_firma: e.target.value }))}
+              >
                 <option value="CONTROLADA">Controlada</option>
                 <option value="AUTOMATICA">Automática</option>
               </select>
             </div>
 
-            <div className="col-md-3">
-              <FieldLabel>Modalidad de Emisión</FieldLabel>
-              <select className="form-select" value={enterfac.modalidad_emision}
-                onChange={e => setEnterfac((p: any) => ({ ...p, modalidad_emision: e.target.value }))}>
-                <option value="ONLINE">Online</option>
-                <option value="ONLINEWEB">Online Web</option>
-                <option value="OFFLINE">Offline</option>
-                <option value="OFFLINEWEB">Offline Web</option>
-                <option value="CIEGA">Ciega</option>
-              </select>
-            </div>
-
+            {/* Admin de Folios — fijado por regla */}
             <div className="col-md-3">
               <FieldLabel>Administrador de Folios</FieldLabel>
-              <select className="form-select" value={enterfac.admin_folios}
-                onChange={e => setEnterfac((p: any) => ({ ...p, admin_folios: e.target.value }))}>
+              <select className="form-select" value={enterfac.admin_folios} disabled>
                 <option value="EN">Enternet</option>
                 <option value="CL">Cliente</option>
               </select>
+              <small className="text-muted">
+                {enterfac.integracion === "Web" ? "Sin integración → Enternet" : "Con integración → Cliente"}
+              </small>
             </div>
 
+            {/* Versionado con listas */}
             <div className="col-md-3">
               <FieldLabel>Versión AppFull</FieldLabel>
-              <select className="form-select" value={enterfac.version_app_full}
-                onChange={e => setEnterfac((p: any) => ({ ...p, version_app_full: e.target.value }))}>
-                <option value="">Seleccione</option>
-                <option value="2024.1">2024.1</option>
-                <option value="2024.2">2024.2</option>
-                <option value="2024.3">2024.3</option>
-              </select>
+              <input
+                className="form-control"
+                value={enterfac.version_app_full}
+                onChange={(e) => setEnterfac((p: any) => ({ ...p, version_app_full: e.target.value }))}
+                placeholder="2024.x"
+              />
             </div>
 
             <div className="col-md-3">
               <FieldLabel>Versión WinPlugin</FieldLabel>
-              <select className="form-select" value={enterfac.version_winplugin}
-                onChange={e => setEnterfac((p: any) => ({ ...p, version_winplugin: e.target.value }))}>
+              <select
+                className="form-select"
+                value={enterfac.version_winplugin}
+                onChange={(e) => setEnterfac((p: any) => ({ ...p, version_winplugin: e.target.value }))}
+              >
                 <option value="">Seleccione</option>
-                <option value="3.1">3.1</option>
-                <option value="3.2">3.2</option>
-                <option value="3.3">3.3</option>
+                {["20230401","20230809","20231103","20240227","20240820","20250321"].map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
               </select>
             </div>
 
             <div className="col-md-3">
               <FieldLabel>Versión WinEmisor</FieldLabel>
-              <select className="form-select" value={enterfac.version_emisor}
-                onChange={e => setEnterfac((p: any) => ({ ...p, version_emisor: e.target.value }))}>
+              <select
+                className="form-select"
+                value={enterfac.version_emisor}
+                onChange={(e) => setEnterfac((p: any) => ({ ...p, version_emisor: e.target.value }))}
+              >
                 <option value="">Seleccione</option>
-                <option value="1.0">1.0</option>
-                <option value="1.1">1.1</option>
+                {["20230615","20231003","20231109","20240930","20241004"].map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-md-3">
+              <FieldLabel>Versión WinEmisor WS</FieldLabel>
+              <select
+                className="form-select"
+                value={enterfac.version_win_emisor_ws}
+                onChange={(e) => setEnterfac((p: any) => ({ ...p, version_win_emisor_ws: e.target.value }))}
+              >
+                <option value="">Seleccione</option>
+                {["20230101","20230518","20230821","20231003","20231106","20240124","20240927","20241004","20250121"].map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
               </select>
             </div>
 
             <div className="col-md-3">
               <FieldLabel>Versión WinBatch</FieldLabel>
-              <select className="form-select" value={enterfac.version_winbatch}
-                onChange={e => setEnterfac((p: any) => ({ ...p, version_winbatch: e.target.value }))}>
+              <select
+                className="form-select"
+                value={enterfac.version_winbatch}
+                onChange={(e) => setEnterfac((p: any) => ({ ...p, version_winbatch: e.target.value }))}
+              >
                 <option value="">Seleccione</option>
-                <option value="2.1">2.1</option>
-                <option value="2.2">2.2</option>
+                {["20230522","20230710","20230821","20231106","20240717","20240806"].map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
               </select>
             </div>
           </div>
         </div>
       )}
 
-      {productos.includes("ANDESPOS") && (
+      {/* ANDESPOS / ENTERBOX — sin “Modalidad de Emisión” aquí */}
+      {(productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) && (
         <div className="border rounded p-3">
-          <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>ANDESPOS</h6>
+          <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>ANDESPOS / ENTERBOX</h6>
           <div className="row g-3">
             <div className="col-md-3">
               <FieldLabel>Modalidad de Firma</FieldLabel>
@@ -696,7 +998,6 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                 <option value="LOCAL">Local</option>
               </select>
             </div>
-
             <div className="col-md-3">
               <FieldLabel>Tipo de Firma</FieldLabel>
               <select className="form-select" value={andespos.tipo_firma || ""}
@@ -705,74 +1006,36 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                 <option value="AUTOMATICA">Automática</option>
               </select>
             </div>
-
             <div className="col-md-3">
-              <FieldLabel>Modalidad de Emisión</FieldLabel>
-              <select className="form-select" value={andespos.modalidad_emision}
-                onChange={e => setAndespos((p: any) => ({ ...p, modalidad_emision: e.target.value }))}>
-                <option value="ONLINE">Online</option>
-                <option value="ONLINEWEB">Online Web</option>
-                <option value="OFFLINE">Offline</option>
-                <option value="OFFLINEWEB">Offline Web</option>
-                <option value="CIEGA">Ciega</option>
+              <FieldLabel>Tipo de Mensaje</FieldLabel>
+              <select className="form-select" value={andespos.tipo_texto || ""}
+                onChange={e => setAndespos((p: any) => ({ ...p, tipo_texto: e.target.value }))}>
+                <option value="">Seleccione</option>
+                <option value="XMLV5">XML V5</option>
+                <option value="TXTV5">TXT V5</option>
+                <option value="XMLCUSTOM">XML Custom</option>
+                <option value="TXTCUSTOM">TXT Custom</option>
               </select>
             </div>
-
-            {["OFFLINE", "OFFLINEWEB"].includes(andespos.modalidad_emision) && (
-              <div className="col-12">
-                <div className="alert alert-warning small mb-0">
-                  Esta modalidad requiere configurar sucursales (ver siguiente paso).
-                </div>
-              </div>
-            )}
-
             <div className="col-md-3">
-              <FieldLabel>Administrador Folios</FieldLabel>
+              <FieldLabel>Administrador de Folios</FieldLabel>
               <select className="form-select" value={andespos.admin_folios}
                 onChange={e => setAndespos((p: any) => ({ ...p, admin_folios: e.target.value }))}>
                 <option value="EN">Enternet</option>
                 <option value="CL">Cliente</option>
               </select>
             </div>
-
-            <div className="col-md-3">
-              <FieldLabel>Versión AppFull</FieldLabel>
-              <select className="form-select" value={andespos.version_app_full}
-                onChange={e => setAndespos((p: any) => ({ ...p, version_app_full: e.target.value }))}>
-                <option value="">Seleccione</option>
-                <option value="2024.1">2024.1</option>
-                <option value="2024.2">2024.2</option>
-                <option value="2024.3">2024.3</option>
-              </select>
-            </div>
-
-            <div className="col-md-3">
-              <FieldLabel>Versión WinPlugin</FieldLabel>
-              <select className="form-select" value={andespos.version_winplugin}
-                onChange={e => setAndespos((p: any) => ({ ...p, version_winplugin: e.target.value }))}>
-                <option value="">Seleccione</option>
-                <option value="3.1">3.1</option>
-                <option value="3.2">3.2</option>
-              </select>
-            </div>
-
             <div className="col-md-3">
               <FieldLabel>Versión WinEmisor</FieldLabel>
-              <select className="form-select" value={andespos.version_emisor}
-                onChange={e => setAndespos((p: any) => ({ ...p, version_emisor: e.target.value }))}>
+              <select
+                className="form-select"
+                value={andespos.version_emisor}
+                onChange={(e) => setAndespos((p: any) => ({ ...p, version_emisor: e.target.value }))}
+              >
                 <option value="">Seleccione</option>
-                <option value="1.0">1.0</option>
-                <option value="1.1">1.1</option>
-              </select>
-            </div>
-
-            <div className="col-md-3">
-              <FieldLabel>Versión WinBatch</FieldLabel>
-              <select className="form-select" value={andespos.version_winbatch}
-                onChange={e => setAndespos((p: any) => ({ ...p, version_winbatch: e.target.value }))}>
-                <option value="">Seleccione</option>
-                <option value="2.1">2.1</option>
-                <option value="2.2">2.2</option>
+                {["20230615","20231003","20231109","20240930","20241004"].map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -781,39 +1044,43 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
     </div>
   );
 
-  /* === Render Resumen COMPLETO === */
+  /* === Render Resumen === */
   const renderResumen = () => (
     <div>
       <SectionTitle>Resumen Final</SectionTitle>
 
-      {/* === Productos === */}
+      {/* Productos */}
       <div className="card mb-3">
         <div className="card-body">
           <strong>Productos seleccionados:</strong>{" "}
-          {productos.length ? productos.map(p => <Chip key={p}>{p}</Chip>) : dash}
+          {productos.length ? productos.map(p => <Chip key={p}>{PRODUCT_LABEL[p]}</Chip>) : dash}
         </div>
       </div>
 
-      {/* === ENTERFAC === */}
+      {/* ENTERFACT */}
       {productos.includes("ENTERFAC") && (
         <div className="card mb-3">
-          <div className="card-header font-primary" style={{ fontWeight: 700 }}>ENTERFAC</div>
+          <div className="card-header font-primary" style={{ fontWeight: 700 }}>ENTERFACT</div>
           <div className="card-body">
             <div className="row g-2">
               <div className="col-md-4"><strong>Empkey:</strong> {fmt(enterfac.empkey)}</div>
               <div className="col-md-4"><strong>ReplicaPass:</strong> {fmt(enterfac.replica_password)}</div>
               <div className="col-md-4"><strong>Pass:</strong> {fmt(enterfac.pass)}</div>
               <div className="col-md-6"><strong>Casilla de intercambio:</strong> {fmt(enterfac.casilla_intercambio)}</div>
-              
-              {/* === Archivos y Layout === */}
+
               <div className="col-md-6"><strong>Archivo Visto Bueno:</strong> {enterfac.url_visto_bueno?.name ? enterfac.url_visto_bueno.name : dash}</div>
               <div className="col-md-6"><strong>URL Membrete:</strong> {fmt(enterfac.url_membrete)}</div>
               <div className="col-md-4"><strong>Layout:</strong> {fmt(enterfac.layout)}</div>
+              {enterfac.layout === "ESTANDAR" && (
+                <>
+                  <div className="col-md-4"><strong>Layout Key:</strong> {fmt(enterfac.layout_key)}</div>
+                  <div className="col-md-4"><strong>URL Layout:</strong> {fmt(enterfac.url_layout_selected)}</div>
+                </>
+              )}
               {enterfac.layout === "CUSTOM" && (
                 <div className="col-md-8"><strong>URL Layout Custom:</strong> {fmt(enterfac.url_layout_custom)}</div>
               )}
 
-              {/* === DTEs === */}
               <div className="col-12 mt-2">
                 <strong>DTE Habilitados:</strong>
                 <div>
@@ -823,34 +1090,26 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                 </div>
               </div>
 
-              {/* === Integración === */}
-              <div className="col-md-3"><strong>Tipo de Integración:</strong> {fmt(enterfac.tipo_ws)}</div>
-              {enterfac.tipo_ws === "WEBSERVICE" && (
-                <div className="col-md-3"><strong>Tipo WebService:</strong> {fmt(enterfac.integracion)}</div>
-              )}
-              <div className="col-md-3"><strong>Tipo de Mensaje:</strong> {fmt(enterfac.tipo_texto)}</div>
-              <div className="col-md-3"><strong>Parser:</strong> {fmt(enterfac.parser)}</div>
-
-              {/* === Firma / Emisión === */}
+              <div className="col-md-3"><strong>Integración:</strong> {fmt(enterfac.integracion)}</div>
               <div className="col-md-3"><strong>Modalidad de Firma:</strong> {fmt(enterfac.modalidad_firma)}</div>
-              <div className="col-md-3"><strong>Tipo de Firma:</strong> {fmt(enterfac.tipo_firma)}</div>
-              <div className="col-md-3"><strong>Modalidad de Emisión:</strong> {fmt(enterfac.modalidad_emision)}</div>
               <div className="col-md-3"><strong>Administrador de Folios:</strong> {fmt(enterfac.admin_folios)}</div>
 
-              {/* === Versionado === */}
               <div className="col-md-3"><strong>Versión AppFull:</strong> {fmt(enterfac.version_app_full)}</div>
               <div className="col-md-3"><strong>Versión WinPlugin:</strong> {fmt(enterfac.version_winplugin)}</div>
               <div className="col-md-3"><strong>Versión WinEmisor:</strong> {fmt(enterfac.version_emisor)}</div>
+              <div className="col-md-3"><strong>Versión WinEmisor WS:</strong> {fmt(enterfac.version_win_emisor_ws)}</div>
               <div className="col-md-3"><strong>Versión WinBatch:</strong> {fmt(enterfac.version_winbatch)}</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* === ANDESPOS === */}
-      {productos.includes("ANDESPOS") && (
+      {/* ANDESPOS / ENTERBOX */}
+      {(productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) && (
         <div className="card mb-3">
-          <div className="card-header font-primary" style={{ fontWeight: 700 }}>ANDESPOS</div>
+          <div className="card-header font-primary" style={{ fontWeight: 700 }}>
+            {productos.includes("ANDESPOS_ENTERBOX") ? "ANDESPOS ENTERBOX" : "ANDESPOS"}
+          </div>
           <div className="card-body">
             <div className="row g-2">
               <div className="col-md-4"><strong>Empkey:</strong> {fmt(andespos.empkey)}</div>
@@ -859,9 +1118,9 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
               <div className="col-md-4"><strong>Encargado FA:</strong> {fmt(andespos.encargado_fa)}</div>
               <div className="col-md-4"><strong>Terminal ID:</strong> {fmt(andespos.terminal_id)}</div>
 
-              {/* === Layout / Documentos === */}
               <div className="col-md-4"><strong>URL Layout:</strong> {fmt(andespos.layout_url)}</div>
               <div className="col-md-4"><strong>Modalidad Impresión:</strong> {fmt(andespos.formato_impresion)}</div>
+
               <div className="col-12 mt-2">
                 <strong>DTE Habilitados:</strong>
                 <div>
@@ -871,34 +1130,26 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                 </div>
               </div>
 
-              {/* === Firma / Emisión === */}
               <div className="col-md-3"><strong>Modalidad de Firma:</strong> {fmt(andespos.modalidad_firma)}</div>
               <div className="col-md-3"><strong>Tipo de Firma:</strong> {fmt(andespos.tipo_firma)}</div>
-              <div className="col-md-3"><strong>Modalidad de Emisión:</strong> {fmt(andespos.modalidad_emision)}</div>
+              <div className="col-md-3"><strong>Tipo de Mensaje:</strong> {fmt(andespos.tipo_texto)}</div>
               <div className="col-md-3"><strong>Administrador de Folios:</strong> {fmt(andespos.admin_folios)}</div>
-
-              {/* === Versionado === */}
-              <div className="col-md-3"><strong>Versión AppFull:</strong> {fmt(andespos.version_app_full)}</div>
-              <div className="col-md-3"><strong>Versión WinPlugin:</strong> {fmt(andespos.version_winplugin)}</div>
               <div className="col-md-3"><strong>Versión WinEmisor:</strong> {fmt(andespos.version_emisor)}</div>
-              <div className="col-md-3"><strong>Versión WinBatch:</strong> {fmt(andespos.version_winbatch)}</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* === LCE === */}
+      {/* LCE */}
       {productos.includes("LCE") && (
         <div className="card mb-3">
           <div className="card-header font-primary" style={{ fontWeight: 700 }}>LCE</div>
-          <div className="card-body">
-            <p>Este producto no requiere configuración adicional.</p>
-          </div>
+          <div className="card-body"><p>Este producto no requiere configuración adicional.</p></div>
         </div>
       )}
 
-      {/* === Sucursales (si aplica) === */}
-      {boxes?.length > 0 && (
+      {/* Sucursales (solo Enterbox) */}
+      {boxes?.length > 0 && productos.includes("ANDESPOS_ENTERBOX") && (
         <div className="card">
           <div className="card-header font-primary" style={{ fontWeight: 700 }}>Sucursales Configuradas</div>
           <div className="card-body">
@@ -919,25 +1170,42 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
     </div>
   );
 
-
-  /* === Render Sucursales (si aplica) === */
+  /* === Render Sucursales (solo Enterbox) === */
   const renderSucursales = () => (
     <div>
       <SectionTitle>Sucursales</SectionTitle>
       <div className="mb-3">
         <FieldLabel>Cantidad de Sucursales</FieldLabel>
-        <input type="number" className="form-control" min={1}
+        <input
+          type="number" className="form-control" min={1}
           value={boxes.length || 1}
-          onChange={e => setBoxes(Array.from({ length: Number(e.target.value) }, (_, i) => boxes[i] || {}))} />
+          onChange={e => setBoxes(Array.from({ length: Math.max(1, Number(e.target.value || 1)) }, (_, i) => boxes[i] || {}))}
+        />
       </div>
       {boxes.map((box, i) => (
         <div key={i} className="card p-3 mb-3">
           <h6>Sucursal #{i + 1}</h6>
           <div className="row g-3">
-            <div className="col-md-3"><FieldLabel>ID Box</FieldLabel><input className="form-control" value={box.idBox || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], idBox: e.target.value }; return n; })} /></div>
-            <div className="col-md-3"><FieldLabel>Router</FieldLabel><input className="form-control" value={box.router || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], router: e.target.value }; return n; })} /></div>
-            <div className="col-md-3"><FieldLabel>IP</FieldLabel><input className="form-control" value={box.ip || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], ip: e.target.value }; return n; })} /></div>
-            <div className="col-md-3"><FieldLabel>Versión Enterbox</FieldLabel><select className="form-select" value={box.enterbox || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], enterbox: e.target.value }; return n; })}><option value="">Seleccione</option><option value="PI3">PI3</option><option value="PI4">PI4</option></select></div>
+            <div className="col-md-3">
+              <FieldLabel>ID Box</FieldLabel>
+              <input className="form-control" value={box.idBox || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], idBox: e.target.value }; return n; })} />
+            </div>
+            <div className="col-md-3">
+              <FieldLabel>Router</FieldLabel>
+              <input className="form-control" value={box.router || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], router: e.target.value }; return n; })} />
+            </div>
+            <div className="col-md-3">
+              <FieldLabel>IP</FieldLabel>
+              <input className="form-control" value={box.ip || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], ip: e.target.value }; return n; })} />
+            </div>
+            <div className="col-md-3">
+              <FieldLabel>Versión Enterbox</FieldLabel>
+              <select className="form-select" value={box.enterbox || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], enterbox: e.target.value }; return n; })}>
+                <option value="">Seleccione</option>
+                <option value="PI3">PI3</option>
+                <option value="PI4">PI4</option>
+              </select>
+            </div>
           </div>
         </div>
       ))}

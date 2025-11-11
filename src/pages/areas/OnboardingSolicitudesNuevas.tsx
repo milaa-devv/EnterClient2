@@ -50,8 +50,6 @@ const OnboardingSolicitudesNuevas: React.FC = () => {
         .order('id', { ascending: false })
 
       if (debounced) {
-        // Buscamos por rut o razón social (nombre)
-        // Nota: or(...) aplica a columnas de la tabla base y embeds usando la sintaxis "empresa.col"
         query = query.or(`empresa.rut.ilike.%${debounced}%,empresa.nombre.ilike.%${debounced}%`)
       }
 
