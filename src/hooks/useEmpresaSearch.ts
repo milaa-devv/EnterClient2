@@ -41,7 +41,8 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
   const buildQuery = useCallback(() => {
     return supabase
       .from('empresa')
-      .select(`
+      .select(
+        `
         empkey,
         rut,
         nombre,
@@ -51,6 +52,7 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
         domicilio,
         telefono,
         correo,
+        estado,
         empresa_comercial (
           nombre_comercial,
           correo_comercial,
@@ -71,45 +73,53 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
           direccion_sac,
           horario_atencion
         )
-      `, { count: 'exact' })
+      `,
+        { count: 'exact' }
+      )
   }, [])
 
-  const filterEmpresasByProfile = useCallback((data: EmpresaCompleta[]) => {
-    if (!profile) return []
+  const filterEmpresasByProfile = useCallback(
+    (data: EmpresaCompleta[]) => {
+      if (!profile) return []
 
-    const filtered = data.filter(e => {
-      let keep = true
-      switch (profile.perfil.nombre) {
-        case 'COM':
-          keep = !!e.empresa_comercial
-          break
-        case 'ADMIN_OB':
-          keep = !e.empresa_onboarding ||
-            (e.empresa_onboarding && ['ONBOARDING', 'SAC', 'COMPLETADA'].includes(e.empresa_onboarding.estado))
-          break
-        case 'OB':
-          keep = !e.empresa_onboarding ||
-            (e.empresa_onboarding &&
-              ['ONBOARDING', 'SAC', 'COMPLETADA'].includes(e.empresa_onboarding.estado) &&
-              e.empresa_onboarding.encargado_name === profile.rut)
-          break
-        case 'ADMIN_SAC':
-          keep = !!e.empresa_sac
-          break
-        case 'SAC':
-          keep = !!e.empresa_sac
-          break
-        default:
-          keep = true
-          break
-      }
-      if (!keep) {
-        console.log('Empresa filtrada fuera:', e.empkey, profile.perfil.nombre, e)
-      }
-      return keep
-    })
-    return filtered
-  }, [profile])
+      const filtered = data.filter((e) => {
+        let keep = true
+        switch (profile.perfil.nombre) {
+          case 'COM':
+            keep = !!e.empresa_comercial
+            break
+          case 'ADMIN_OB':
+            keep =
+              !e.empresa_onboarding ||
+              (e.empresa_onboarding &&
+                ['ONBOARDING', 'SAC', 'COMPLETADA'].includes(e.empresa_onboarding.estado))
+            break
+          case 'OB':
+            keep =
+              !e.empresa_onboarding ||
+              (e.empresa_onboarding &&
+                ['ONBOARDING', 'SAC', 'COMPLETADA'].includes(e.empresa_onboarding.estado) &&
+                e.empresa_onboarding.encargado_name === profile.rut)
+            break
+          case 'ADMIN_SAC':
+            keep = !!e.empresa_sac
+            break
+          case 'SAC':
+            keep = !!e.empresa_sac
+            break
+          default:
+            keep = true
+            break
+        }
+        if (!keep) {
+          console.log('Empresa filtrada fuera:', e.empkey, profile.perfil.nombre, e)
+        }
+        return keep
+      })
+      return filtered
+    },
+    [profile]
+  )
 
   const searchEmpresas = useCallback(async () => {
     setLoading(true)
@@ -119,32 +129,41 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
         (currentPage - 1) * pageSize,
         currentPage * pageSize - 1
       )
+
       const { data, error: searchError } = await query
       if (searchError) throw searchError
 
       console.log('Datos crudos:', data)
 
-      let filtered = filterEmpresasByProfile(data || [])
+      let filtered: EmpresaCompleta[] = filterEmpresasByProfile((data || []) as EmpresaCompleta[])
 
-      console.log('Datos filtrados:', filtered)
+      console.log('Datos filtrados por perfil:', filtered)
 
+      // ➕ filtros por estado / otros
+      if (filters.estado) {
+        filtered = filtered.filter((e) => e.estado === filters.estado)
+      }
+
+      // Filtro de texto
       if (searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase()
-        filtered = filtered.filter(e =>
-          (e.nombre?.toLowerCase() || '').includes(q) ||
-          (e.rut?.toString() || '').includes(q) ||
-          (e.nombre_fantasia?.toLowerCase() || '').includes(q)
+        filtered = filtered.filter(
+          (e) =>
+            (e.nombre?.toLowerCase() || '').includes(q) ||
+            (e.rut?.toString() || '').includes(q) ||
+            (e.nombre_fantasia?.toLowerCase() || '').includes(q)
         )
       }
 
       setEmpresas(filtered)
       setTotalCount(filtered.length)
     } catch (err: any) {
+      console.error(err)
       setError('Error al buscar empresas: ' + err.message)
     } finally {
       setLoading(false)
     }
-  }, [buildQuery, currentPage, pageSize, filterEmpresasByProfile, searchQuery])
+  }, [buildQuery, currentPage, pageSize, filterEmpresasByProfile, searchQuery, filters])
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -155,6 +174,7 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
 
   useEffect(() => {
     searchEmpresas()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const updateFilters = useCallback((newFilters: Partial<SearchFilters>) => {
@@ -177,3 +197,4 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
     setPageSize,
   }
 }
+

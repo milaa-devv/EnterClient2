@@ -15,6 +15,7 @@ import { ContrapartesStep } from '@/components/forms/ContrapartesStep'
 import { UsuariosPlataformaStep } from '@/components/forms/UsuariosPlataformaStep'
 import { ConfiguracionNotificacionesStep } from '@/components/forms/ConfiguracionNotificacionesStep'
 import { InformacionPlanStep } from '@/components/forms/InformacionPlanStep'
+import { ResumenStep } from '@/components/forms/ResumenStep'
 
 const STEP_COMPONENTS = [
   DatosGeneralesStep,
@@ -25,28 +26,27 @@ const STEP_COMPONENTS = [
   ContrapartesStep,
   UsuariosPlataformaStep,
   ConfiguracionNotificacionesStep,
-  InformacionPlanStep
+  InformacionPlanStep,
+  ResumenStep, // 👈 NUEVO
 ]
+
+const DRAFT_KEY = 'nueva-empresa-draft'
 
 /* ================= Helpers ================= */
 
 // Regex “parece RUT” (con o sin puntos, con o sin guión, acepta K/k)
-const RUT_LIKE_RE =
-  /^(\d{1,3}(?:\.\d{3})+|\d{7,9})[-\s/]?([\dkK])$/;
+const RUT_LIKE_RE = /^(\d{1,3}(?:\.\d{3})+|\d{7,9})[-\s/]?([\dkK])$/
 
 // Normaliza a "12345678-K" (sin puntos)
 function normalizeRut(raw?: string): string | null {
   if (!raw) return null
-  // quitar espacios
   const trimmed = raw.trim()
-  // si viene con puntos o sin guión, capturamos usando regex amigable
   const m = trimmed.match(RUT_LIKE_RE)
   if (m) {
     const cuerpo = m[1].replace(/\./g, '')
     const dv = m[2].toUpperCase()
     return `${cuerpo}-${dv}`
   }
-  // fallback: quitar todo menos dígitos y K, y recomponer
   const cleaned = trimmed.replace(/[^\dkK]/g, '')
   if (cleaned.length < 2) return null
   const dv = cleaned.slice(-1).toUpperCase()
@@ -60,12 +60,12 @@ function empkeyFromRut(rutNorm?: string): number | null {
   const digits = rutNorm.replace(/\D+/g, '')
   if (digits.length < 2) return null
   const sinDv = digits.slice(0, -1)
-  const trimmed = sinDv.slice(-9) // limitar largo
+  const trimmed = sinDv.slice(-9)
   const n = Number(trimmed)
   return Number.isFinite(n) ? n : null
 }
 
-// Busca una ruta segura dentro de un objeto por path "a.b.c"
+// Helpers para buscar campos en el state
 function getPath(obj: any, path: string) {
   const parts = path.split('.')
   let cur = obj
@@ -76,7 +76,6 @@ function getPath(obj: any, path: string) {
   return cur
 }
 
-// Toma la primera clave que exista y tenga valor no vacío
 function pick(obj: any, keys: string[]) {
   for (const k of keys) {
     const v = k.includes('.') ? getPath(obj, k) : obj?.[k]
@@ -85,7 +84,6 @@ function pick(obj: any, keys: string[]) {
   return { key: undefined as string | undefined, value: undefined as any }
 }
 
-// Recorre profundidades del objeto y devuelve el primer string que “parece RUT”
 function findRutAnywhere(obj: any): { keyPath: string; value: string } | null {
   const seen = new WeakSet()
   function walk(node: any, path: string[]): { keyPath: string; value: string } | null {
@@ -97,7 +95,7 @@ function findRutAnywhere(obj: any): { keyPath: string; value: string } | null {
       const p = [...path, k]
       if (typeof v === 'string') {
         const s = v.trim()
-        if (RUT_LIKE_RE.test(s) || /[\dkK]$/.test(s) && normalizeRut(s)) {
+        if (RUT_LIKE_RE.test(s) || (/[\\dkK]$/.test(s) && normalizeRut(s))) {
           return { keyPath: p.join('.'), value: s }
         }
       } else if (v && typeof v === 'object') {
@@ -116,8 +114,8 @@ const NuevaEmpresaContent: React.FC = () => {
 
   const ctx = useFormContext() as any
   const state = ctx?.state ?? {}
-  const nextStep = ctx?.nextStep ?? (() => { })
-  const prevStep = ctx?.prevStep ?? (() => { })
+  const nextStep = ctx?.nextStep ?? (() => {})
+  const prevStep = ctx?.prevStep ?? (() => {})
   const currentStep = state?.currentStep ?? 0
 
   const totalSteps = STEP_COMPONENTS.length
@@ -134,52 +132,72 @@ const NuevaEmpresaContent: React.FC = () => {
   )
 
   const handlePrevious = () => {
-    if (isFirstStep) navigate('/comercial')
+    if (isFirstStep) navigate('/comercial/dashboard')
     else prevStep()
   }
 
+  const handleSaveDraftAndExit = () => {
+    try {
+      const payload = {
+        savedAt: new Date().toISOString(),
+        state,
+      }
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(payload))
+      navigate('/comercial/empresas-proceso')
+    } catch (err: any) {
+      console.error(err)
+      alert('No se pudo guardar el borrador en este navegador.')
+    }
+  }
+
   const handleNext = async () => {
+    // Si NO es el último paso -> solo avanzar
     if (!isLastStep) {
       nextStep()
       return
     }
 
+    // Último paso = Resumen -> enviar a Onboarding
     setErrorMsg(null)
     setSubmitting(true)
 
     try {
-      // 1) Intentar por nombres “conocidos”
       const { value: rutVal1 } = pick(formDG, [
-        'rut', 'rut_empresa', 'rutEmpresa', 'rutEmpresaFormateado', 'rut_empresa_formateado', 'rut_formateado',
-        'datosGenerales.rut', 'datosGenerales.rutEmpresa'
+        'rut',
+        'rut_empresa',
+        'rutEmpresa',
+        'rutEmpresaFormateado',
+        'rut_empresa_formateado',
+        'rut_formateado',
+        'datosGenerales.rut',
+        'datosGenerales.rutEmpresa',
       ])
 
-
-      // 2) Si no, buscar en TODO el estado
-      const rutFallback = rutVal1 ?? findRutAnywhere(state)?.value ?? findRutAnywhere(formDG)?.value
+      const rutFallback =
+        rutVal1 ?? findRutAnywhere(state)?.value ?? findRutAnywhere(formDG)?.value
 
       const rutNorm = normalizeRut(String(rutFallback ?? ''))
       if (!rutNorm) {
-        // debug amigable
-        // console.log('STATE:', state); console.log('formDG:', formDG);
         throw new Error('Falta el RUT de la empresa en “Datos Generales”.')
       }
 
-      // Otros datos (tolerantes)
-      const razonSocial = (pick(formDG, ['razonSocial', 'nombre', 'razon_social']).value
-        ?? pick(state, ['razonSocial', 'nombre', 'razon_social']).value) as string | undefined
-      const nombreFantasia = (pick(formDG, ['nombreFantasia', 'fantasia', 'nombre_fantasia']).value
-        ?? pick(state, ['nombreFantasia', 'fantasia', 'nombre_fantasia']).value) as string | undefined
-      const domicilio = (pick(formDG, ['direccion', 'domicilio']).value
-        ?? pick(state, ['direccion', 'domicilio']).value) as string | undefined
-      const telefono = (pick(formDG, ['telefono', 'telefonoEmpresa']).value
-        ?? pick(state, ['telefono', 'telefonoEmpresa']).value) as string | undefined
-      const correo = (pick(formDG, ['correo', 'email']).value
-        ?? pick(state, ['correo', 'email']).value) as string | undefined
-      const empkeyForm = (pick(formDG, ['empkey']).value
-        ?? pick(state, ['empkey']).value) as number | string | undefined
+      const razonSocial = (pick(formDG, ['razonSocial', 'nombre', 'razon_social']).value ??
+        pick(state, ['razonSocial', 'nombre', 'razon_social']).value) as
+        | string
+        | undefined
+      const nombreFantasia = (pick(formDG, ['nombreFantasia', 'fantasia', 'nombre_fantasia']).value ??
+        pick(state, ['nombreFantasia', 'fantasia', 'nombre_fantasia']).value) as
+        | string
+        | undefined
+      const domicilio = (pick(formDG, ['direccion', 'domicilio']).value ??
+        pick(state, ['direccion', 'domicilio']).value) as string | undefined
+      const telefono = (pick(formDG, ['telefono', 'telefonoEmpresa']).value ??
+        pick(state, ['telefono', 'telefonoEmpresa']).value) as string | undefined
+      const correo = (pick(formDG, ['correo', 'email']).value ??
+        pick(state, ['correo', 'email']).value) as string | undefined
+      const empkeyForm = (pick(formDG, ['empkey']).value ??
+        pick(state, ['empkey']).value) as number | string | undefined
 
-      // empkey
       let empkey: number | null = null
       if (empkeyForm !== undefined && empkeyForm !== null && `${empkeyForm}`.trim() !== '') {
         const n = Number(empkeyForm)
@@ -187,13 +205,16 @@ const NuevaEmpresaContent: React.FC = () => {
         empkey = n
       } else {
         empkey = empkeyFromRut(rutNorm)
-        if (!empkey) throw new Error('No se pudo derivar un empkey desde el RUT. Ingresa un empkey en el formulario.')
+        if (!empkey) {
+          throw new Error(
+            'No se pudo derivar un empkey desde el RUT. Ingresa un empkey en el formulario.'
+          )
+        }
       }
 
       const user = await getCurrentUser().catch(() => null)
       const created_by = (user as any)?.email ?? null
 
-      // Insert empresa
       const empresaRow: any = {
         empkey,
         rut: rutNorm,
@@ -202,7 +223,7 @@ const NuevaEmpresaContent: React.FC = () => {
         domicilio: domicilio ?? null,
         telefono: telefono ?? null,
         correo: correo ?? null,
-        created_by
+        created_by,
       }
 
       const { data: empresaData, error: empErr } = await (supabase as any)
@@ -212,35 +233,52 @@ const NuevaEmpresaContent: React.FC = () => {
         .single()
       if (empErr) throw empErr
 
-      // Insert onboarding pendiente
       const { error: obErr } = await (supabase as any)
         .from('empresa_onboarding')
         .insert([{ empkey: empresaData.empkey, estado: 'pendiente' }])
       if (obErr) throw obErr
 
+      // Borramos borrador local si existía
+      window.localStorage.removeItem(DRAFT_KEY)
+
       navigate('/onboarding/solicitudes-nuevas', {
-        state: { message: 'Empresa enviada a Onboarding (estado: pendiente)' }
+        state: { message: 'Empresa enviada a Onboarding (estado: pendiente)' },
       })
     } catch (err: any) {
       console.error(err)
-      setErrorMsg(err?.message ?? 'Ocurrió un error al enviar la empresa a Onboarding.')
+      setErrorMsg(
+        err?.message ?? 'Ocurrió un error al enviar la empresa a Onboarding.'
+      )
     } finally {
       setSubmitting(false)
     }
   }
 
-  // Info de diagnóstico para el badge de abajo
   const foundRut =
-    pick(formDG, ['rut', 'rut_empresa', 'rutEmpresa', 'rutEmpresaFormateado', 'rut_empresa_formateado', 'rut_formateado']).value
-    ?? findRutAnywhere(formDG)?.value
-    ?? findRutAnywhere(state)?.value
-    ?? '—'
+    pick(formDG, [
+      'rut',
+      'rut_empresa',
+      'rutEmpresa',
+      'rutEmpresaFormateado',
+      'rut_empresa_formateado',
+      'rut_formateado',
+    ]).value ??
+    findRutAnywhere(formDG)?.value ??
+    findRutAnywhere(state)?.value ??
+    '—'
 
   const foundKey =
-    pick(formDG, ['rut', 'rut_empresa', 'rutEmpresa', 'rutEmpresaFormateado', 'rut_empresa_formateado', 'rut_formateado']).key
-    ?? findRutAnywhere(formDG)?.keyPath
-    ?? findRutAnywhere(state)?.keyPath
-    ?? 'no-detectado'
+    pick(formDG, [
+      'rut',
+      'rut_empresa',
+      'rutEmpresa',
+      'rutEmpresaFormateado',
+      'rut_empresa_formateado',
+      'rut_formateado',
+    ]).key ??
+    findRutAnywhere(formDG)?.keyPath ??
+    findRutAnywhere(state)?.keyPath ??
+    'no-detectado'
 
   return (
     <div className="container-fluid">
@@ -250,7 +288,7 @@ const NuevaEmpresaContent: React.FC = () => {
           <div className="d-flex align-items-center gap-3 mb-3">
             <button
               className="btn btn-outline-secondary"
-              onClick={() => navigate('/comercial')}
+              onClick={() => navigate('/comercial/dashboard')}
               disabled={submitting}
             >
               <ArrowLeft size={18} />
@@ -283,11 +321,11 @@ const NuevaEmpresaContent: React.FC = () => {
               <CurrentStepComponent />
             </div>
             <div className="card-footer bg-light">
-              <div className="d-flex justify-content-between align-items-center">
+              <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div className="text-muted small">
                   Paso {currentStep + 1} de {totalSteps}
                 </div>
-                <div className="d-flex gap-2">
+                <div className="d-flex gap-2 flex-wrap justify-content-end">
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -297,9 +335,22 @@ const NuevaEmpresaContent: React.FC = () => {
                     {isFirstStep ? 'Cancelar' : 'Anterior'}
                   </button>
 
+                  {!isLastStep && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={handleSaveDraftAndExit}
+                      disabled={submitting}
+                    >
+                      Guardar y continuar más tarde
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    className={`btn ${isLastStep ? 'btn-success' : 'btn-primary'} d-flex align-items-center gap-2`}
+                    className={`btn ${
+                      isLastStep ? 'btn-success' : 'btn-primary'
+                    } d-flex align-items-center gap-2`}
                     onClick={handleNext}
                     disabled={submitting}
                   >
@@ -308,7 +359,9 @@ const NuevaEmpresaContent: React.FC = () => {
                         <Send size={16} />
                         {submitting ? 'Enviando…' : 'Enviar a Onboarding'}
                       </>
-                    ) : 'Siguiente'}
+                    ) : (
+                      'Guardar y seguir'
+                    )}
                   </button>
                 </div>
               </div>
@@ -317,7 +370,9 @@ const NuevaEmpresaContent: React.FC = () => {
 
           <div className="text-muted small mt-3">
             RUT detectado:&nbsp;<strong>{String(foundRut)}</strong>
-            <span className="ms-2">(<em>clave:</em> {foundKey})</span>
+            <span className="ms-2">
+              (<em>clave:</em> {foundKey})
+            </span>
           </div>
         </div>
       </div>

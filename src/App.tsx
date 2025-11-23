@@ -14,7 +14,8 @@ import PasoProduccion from '@/pages/onboarding/PasoProduccion'
 // Dashboards por área
 import ComercialDashboard from '@/pages/areas/ComercialDashboard'
 import OnboardingDashboard from '@/pages/areas/OnboardingDashboard'
-import SacDashboard from '@/pages/areas/SacDashboard' // 👈 NUEVO
+import SacDashboard from '@/pages/areas/SacDashboard'
+import ComercialEmpresasProceso from '@/pages/areas/ComercialEmpresasProceso' // 👈 NUEVO
 
 const App = () => {
   const { profile } = useAuth()
@@ -24,7 +25,7 @@ const App = () => {
   const role = profile?.perfil?.nombre
   const defaultDashboardPath =
     role === 'COM'
-      ? '/comercial/dashboard'
+      ? '/empresas/activas'                 // 👈 Comercial entra directo a Empresas Activas
       : role === 'OB'
       ? '/onboarding/mis-empresas'
       : role === 'SAC'
@@ -39,16 +40,22 @@ const App = () => {
         {/* Redirección inicial según rol */}
         <Route path="/" element={<Navigate to={defaultDashboardPath} />} />
 
-        {/* Dashboards */}
+        {/* Dashboards genéricos */}
         <Route path="/dashboard" element={<Dashboard />} />
-         <Route path="/empresas/activas" element={<Dashboard />} />
+        <Route path="/empresas/activas" element={<Dashboard />} /> {/* 👈 Vista común de empresas activas */}
+
+        {/* Dashboards por área */}
         <Route path="/comercial/dashboard" element={<ComercialDashboard />} />
         <Route path="/onboarding/mis-empresas" element={<OnboardingDashboard />} />
-        <Route path="/sac/mis-empresas" element={<SacDashboard />} /> {/* 👈 NUEVA RUTA */}
+        <Route path="/sac/mis-empresas" element={<SacDashboard />} />
 
-        {/* Otras rutas */}
-        <Route path="/empresa/:empkey" element={<EmpresaDetail />} />
+        {/* Comercial */}
         <Route path="/crear-empresa" element={<NuevaEmpresa />} />
+        <Route path="/comercial/nueva-empresa" element={<NuevaEmpresa />} /> {/* 👈 alias para el sidebar */}
+        <Route path="/comercial/empresas-proceso" element={<ComercialEmpresasProceso />} /> {/* 👈 Emp. en proceso */}
+
+        {/* Onboarding / SAC */}
+        <Route path="/empresa/:empkey" element={<EmpresaDetail />} />
         <Route
           path="/configuracion-empresa/:empkey?"
           element={<ConfiguracionEmpresaForm onSave={() => {}} />}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth, usePermissions } from '@/hooks/useAuth'
 import { EmpresaGrid } from '@/components/EmpresaGrid'
 import { useEmpresaSearch } from '@/hooks/useEmpresaSearch'
@@ -6,9 +6,7 @@ import { useNavigate } from 'react-router-dom'
 
 const DashboardContent: React.FC = () => {
   const { profile, logout } = useAuth()
-  const {
-    canEditComercial,
-  } = usePermissions()
+  const { canEditComercial } = usePermissions()
 
   const navigate = useNavigate()
 
@@ -20,7 +18,13 @@ const DashboardContent: React.FC = () => {
     totalCount,
     setSearchQuery,
     loading,
+    updateFilters,
   } = useEmpresaSearch()
+
+  useEffect(() => {
+    // 👇 Empresas activas = COMPLETADAS por todas las áreas
+    updateFilters({ estado: 'COMPLETADA' })
+  }, [updateFilters])
 
   if (!profile) return null
 
@@ -31,33 +35,37 @@ const DashboardContent: React.FC = () => {
   }
 
   const handleCrearEmpresa = () => {
-    navigate('/crear-empresa')
+    navigate('/comercial/nueva-empresa')
   }
 
-  // Los títulos por rol y opción de crear empresa en Comercial
   const getDashboardHeader = () => {
     switch (profile.perfil.nombre) {
       case 'COM':
         return (
           <>
-            <h2>Dashboard Comercial</h2>
-            {canEditComercial() && (
-              <button className="btn btn-gradient mb-3" onClick={handleCrearEmpresa}>
-                Crear Empresa Comercial
-              </button>
-            )}
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h2 className="mb-0">Empresas activas</h2>
+              {canEditComercial() && (
+                <button className="btn btn-gradient" onClick={handleCrearEmpresa}>
+                  Nueva Empresa
+                </button>
+              )}
+            </div>
+            <p className="text-muted mb-0">
+              Empresas completadas al 100% por Comercial, Onboarding y SAC.
+            </p>
           </>
         )
       case 'OB':
-        return <h2>Onboarding Ejecutivo</h2>
+        return <h2>Empresas activas Onboarding</h2>
       case 'ADMIN_OB':
-        return <h2>Onboarding Administrador</h2>
+        return <h2>Empresas activas (Admin Onboarding)</h2>
       case 'SAC':
-        return <h2>SAC Ejecutivo</h2>
+        return <h2>Empresas activas SAC</h2>
       case 'ADMIN_SAC':
-        return <h2>SAC Administrador</h2>
+        return <h2>Empresas activas (Admin SAC)</h2>
       default:
-        return <h2>Dashboard</h2>
+        return <h2>Empresas activas</h2>
     }
   }
 
@@ -84,14 +92,16 @@ const DashboardContent: React.FC = () => {
 
       <div>
         {getDashboardHeader()}
-        <EmpresaGrid
-          empresas={empresas}
-          viewMode="grid"
-          currentPage={currentPage}
-          totalCount={totalCount}
-          onPageChange={setCurrentPage}
-          loading={loading}
-        />
+        <div className="mt-3">
+          <EmpresaGrid
+            empresas={empresas}
+            viewMode="grid"
+            currentPage={currentPage}
+            totalCount={totalCount}
+            onPageChange={setCurrentPage}
+            loading={loading}
+          />
+        </div>
       </div>
     </div>
   )

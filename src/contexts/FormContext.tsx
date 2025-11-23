@@ -16,37 +16,57 @@ interface FormContextType {
 
 const FormContext = createContext<FormContextType | undefined>(undefined)
 
+const DRAFT_KEY = 'nueva-empresa-draft'
+
 export const FormProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<FormState>({
-    currentStep: 0,
-    data: {}
+  const [state, setState] = useState<FormState>(() => {
+    // Intentar cargar un borrador guardado
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem(DRAFT_KEY)
+        if (raw) {
+          const parsed = JSON.parse(raw) as { state?: FormState }
+          if (parsed?.state) {
+            return parsed.state
+          }
+        }
+      } catch (err) {
+        console.error('Error leyendo borrador comercial al iniciar el formulario:', err)
+      }
+    }
+    return {
+      currentStep: 0,
+      data: {},
+    }
   })
 
+  const MAX_STEP = 9 // 10 pasos: 0-9 (incluyendo Resumen)
+
   const updateData = (newData: any) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
-      data: { ...prev.data, ...newData }
+      data: { ...prev.data, ...newData },
     }))
   }
 
   const nextStep = () => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
-      currentStep: Math.min(prev.currentStep + 1, 8) // 9 pasos total (0-8)
+      currentStep: Math.min(prev.currentStep + 1, MAX_STEP),
     }))
   }
 
   const prevStep = () => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
-      currentStep: Math.max(prev.currentStep - 1, 0)
+      currentStep: Math.max(prev.currentStep - 1, 0),
     }))
   }
 
   const setCurrentStep = (step: number) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
-      currentStep: Math.max(0, Math.min(step, 8))
+      currentStep: Math.max(0, Math.min(step, MAX_STEP)),
     }))
   }
 
@@ -64,4 +84,5 @@ export const useFormContext = (): FormContextType => {
   }
   return context
 }
+
 

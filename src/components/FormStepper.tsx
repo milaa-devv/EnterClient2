@@ -8,21 +8,20 @@ interface FormStepperProps {
 
 const STEPS = [
   'Datos Generales',
-  'Datos de Contacto', 
+  'Datos de Contacto',
   'Actividades Económicas',
   'Representantes Legales',
   'Documentos Tributarios',
   'Contrapartes',
   'Usuarios de Plataforma',
   'Notificaciones',
-  'Información del Plan'
+  'Información del Plan',
+  'Resumen', // 👈 NUEVO
 ]
 
-export const FormStepper: React.FC<FormStepperProps> = ({
-  orientation = 'horizontal'
-}) => {
+export const FormStepper: React.FC<FormStepperProps> = ({ orientation = 'horizontal' }) => {
   const { state, setCurrentStep } = useFormContext()
-  
+
   const handleStepClick = (stepIndex: number) => {
     if (stepIndex <= state.currentStep) {
       setCurrentStep(stepIndex)
@@ -34,10 +33,9 @@ export const FormStepper: React.FC<FormStepperProps> = ({
       <div className="stepper-container">
         {STEPS.map((title, index) => (
           <React.Fragment key={index}>
-            <div 
+            <div
               className={`step ${
-                index === state.currentStep ? 'active' : 
-                index < state.currentStep ? 'completed' : ''
+                index === state.currentStep ? 'active' : index < state.currentStep ? 'completed' : ''
               }`}
             >
               <button
@@ -47,16 +45,12 @@ export const FormStepper: React.FC<FormStepperProps> = ({
                 disabled={index > state.currentStep}
               >
                 <div className="step-indicator">
-                  {index < state.currentStep ? (
-                    <Check size={16} />
-                  ) : (
-                    <span>{index + 1}</span>
-                  )}
+                  {index < state.currentStep ? <Check size={16} /> : <span>{index + 1}</span>}
                 </div>
                 <div className="step-title">{title}</div>
               </button>
             </div>
-            
+
             {index < STEPS.length - 1 && orientation === 'horizontal' && (
               <div className="step-separator">—</div>
             )}
@@ -66,4 +60,5 @@ export const FormStepper: React.FC<FormStepperProps> = ({
     </div>
   )
 }
+
 
