@@ -1,4 +1,3 @@
-// src/pages/areas/OnboardingDashboard.tsx
 import React from 'react'
 import { useAuth, usePermissions } from '@/hooks/useAuth'
 import { 

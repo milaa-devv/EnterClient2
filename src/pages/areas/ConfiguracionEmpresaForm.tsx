@@ -60,9 +60,13 @@ const LAYOUTS_ENTERFACT = [
   { key: "Layout 3", nombre: "Layout 3", url: "" },
 ] as const;
 
-/** Modalidades */
+/** Modalidades emisión */
 type ModalidadEnterfac = "Online" | "Online Web" | "Offline" | "Offline Web" | "Ciega";
 type ModalidadAndes = "Offline Web" | "Ciega";
+
+/** Integraciones */
+type IntegracionTipo = "Transferencia de Archivo" | "Batch" | "Web Service" | "Web";
+type WebServiceTipo = "REST" | "SOAP";
 
 /* ============== Helpers UI ============== */
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -72,7 +76,6 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     </h4>
   );
 }
-
 function PageHeading({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="font-primary text-gradient mb-3" style={{ fontSize: "2rem", fontWeight: 700 }}>
@@ -80,7 +83,6 @@ function PageHeading({ children }: { children: React.ReactNode }) {
     </h2>
   );
 }
-
 function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
     <label className={`form-label font-primary ${required ? "required" : ""}`} style={{ fontSize: ".875rem", fontWeight: 600 }}>
@@ -88,7 +90,6 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
     </label>
   );
 }
-
 function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span className="px-2 py-1 me-2 mb-2 d-inline-block"
@@ -97,7 +98,6 @@ function Chip({ children }: { children: React.ReactNode }) {
     </span>
   );
 }
-
 const dash = "—";
 const fmt = (v: any) => (v === undefined || v === null || v === "" ? dash : String(v));
 
@@ -119,11 +119,9 @@ function Tabs({ value, onValueChange, children }: { value?: string; onValueChang
   const ctx = useMemo(() => ({ value: internal, setValue, valuesRef, idBase }), [internal, setValue, idBase]);
   return <TabsCtx.Provider value={ctx}>{children}</TabsCtx.Provider>;
 }
-
 function TabsList({ children }: { children: React.ReactNode }) {
   return <ul className="nav nav-tabs mb-3" role="tablist">{children}</ul>;
 }
-
 function TabsTrigger({ value, children }: { value: string; children: React.ReactNode }) {
   const ctx = useContext(TabsCtx)!;
   if (!ctx.valuesRef.current.includes(value)) ctx.valuesRef.current.push(value);
@@ -151,7 +149,6 @@ function TabsTrigger({ value, children }: { value: string; children: React.React
     </li>
   );
 }
-
 function TabsContent({ value, children }: { value: string; children: React.ReactNode }) {
   const ctx = useContext(TabsCtx)!;
   const hidden = ctx.value !== value;
@@ -166,6 +163,7 @@ function TabsContent({ value, children }: { value: string; children: React.React
 const onlyDigits = (s: string) => s.replace(/\D+/g, "");
 const onlyAlnum = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "");
 const isPdf = (file: File) => !!file && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
+const isCsv = (file: File) => !!file && (file.type.includes("csv") || /\.csv$/i.test(file.name));
 const isValidUrl = (u: string) => { try { new URL(u); return true; } catch { return false; } };
 /* ================= Form principal ================= */
 type Props = { empresa?: any; onSave: (data: any) => void };
@@ -189,12 +187,56 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
     url_visto_bueno: null as File | null, url_membrete: "",
     layout: "ESTANDAR", layout_key: "", url_layout_selected: "", url_layout_custom: "",
     dte_habilitados: [] as DteKey[],
-    integracion: "", tipo_ws: "", tipo_texto: "", parser: "",
+    // Integración (ahora por documento en Documentos&Layout)
+    tipo_texto: "", parser: "",
     modalidad_firma: "CONTROLADA", admin_folios: "EN",
-    version_emisor: "", version_app_full: "", version_winplugin: "", version_winbatch: "",
+    version_emisor: "", version_winplugin: "", version_winbatch: "",
     version_win_emisor_ws: "",
     ...empresa?.onboarding?.configuracionEmpresa?.enterfac,
   });
+
+  /** Integración por documento (Enterfact) */
+  const [efIntegracionGeneral, setEfIntegracionGeneral] = useState<IntegracionTipo[]>([]);
+  type EfIntegracionPorDoc = Partial<Record<DteKey, IntegracionTipo[]>>;
+  const [efIntegracionPorDoc, setEfIntegracionPorDoc] = useState<EfIntegracionPorDoc>({});
+  type EfWsTipoPorDoc = Partial<Record<DteKey, WebServiceTipo | "">>;
+  const [efWsTipoPorDoc, setEfWsTipoPorDoc] = useState<EfWsTipoPorDoc>({});
+
+  // Prellenar per-doc con "general" si no hay override
+  useEffect(() => {
+    const seleccionados = (enterfac.dte_habilitados || []) as DteKey[];
+    setEfIntegracionPorDoc(prev => {
+      const copy: EfIntegracionPorDoc = { ...prev };
+      seleccionados.forEach(k => {
+        if (!copy[k] || copy[k]!.length === 0) copy[k] = [...efIntegracionGeneral];
+      });
+      return copy;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [efIntegracionGeneral, enterfac.dte_habilitados]);
+
+  // Batch por documento (CSV + codificación + preview)
+  type Codificacion = "ANSI" | "UTF-8";
+  type EfBatchCfg = { file: File | null; codificacion: Codificacion; preview: string[][] };
+  const [efBatchPorDoc, setEfBatchPorDoc] = useState<Partial<Record<DteKey, EfBatchCfg>>>({});
+
+  const handleCsvPerDoc = (doc: DteKey, file: File | null, cod: Codificacion) => {
+    if (!file) {
+      setEfBatchPorDoc(prev => ({ ...prev, [doc]: { file: null, codificacion: cod, preview: [] } }));
+      return;
+    }
+    if (!isCsv(file)) {
+      alert("Solo se permiten archivos .csv");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || "");
+      const rows = text.split(/\r?\n/).filter(Boolean).slice(0, 5).map(r => r.split(","));
+      setEfBatchPorDoc(prev => ({ ...prev, [doc]: { file, codificacion: cod, preview: rows } }));
+    };
+    reader.readAsText(file, cod === "ANSI" ? "windows-1252" : "utf-8");
+  };
 
   /** AndesPOS / Enterbox comparten estructura */
   const [andespos, setAndespos] = useState<any>({
@@ -209,13 +251,12 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
   const [enterfacGeneral, setEnterfacGeneral] = useState<"" | ModalidadEnterfac>("");
   type EnterfacPorDoc = Partial<Record<DteKey, ModalidadEnterfac>>;
   const [enterfacPorDoc, setEnterfacPorDoc] = useState<EnterfacPorDoc>({});
-
   useEffect(() => {
     if (!enterfacGeneral) return;
-    setEnterfacPorDoc((prev) => {
+    setEnterfacPorDoc(prev => {
       const copy: EnterfacPorDoc = { ...prev };
       const seleccionados = (enterfac.dte_habilitados || []) as DteKey[];
-      seleccionados.forEach((k) => { if (!copy[k]) copy[k] = enterfacGeneral as ModalidadEnterfac; });
+      seleccionados.forEach(k => { if (!copy[k]) copy[k] = enterfacGeneral as ModalidadEnterfac; });
       return copy;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -227,32 +268,35 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
   const [andesPorDoc, setAndesPorDoc] = useState<AndesPorDoc>({});
   useEffect(() => {
     if (!andesGeneral) return;
-    setAndesPorDoc((prev) => {
+    setAndesPorDoc(prev => {
       const copy: AndesPorDoc = { ...prev };
       const seleccionados = (andespos.dte_habilitados || []) as DteKey[];
-      seleccionados.forEach((k) => { if (!copy[k]) copy[k] = andesGeneral as ModalidadAndes; });
+      seleccionados.forEach(k => { if (!copy[k]) copy[k] = andesGeneral as ModalidadAndes; });
       return copy;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [andesGeneral]);
 
-  /** Batch (Enterfact) — sin previsualización */
-  type Codificacion = "ANSI" | "UTF-8";
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [batchError, setBatchError] = useState("");
-  const [codificacion, setCodificacion] = useState<Codificacion>("ANSI");
-
   /** Visto Bueno (solo PDF) */
   const [filePreview, setFilePreview] = useState<string>("");
   const [fileError, setFileError] = useState<string>("");
 
-  /** Sucursales (solo Enterbox) */
+  /** LCE — archivos CSV */
+  const [lce, setLce] = useState<{
+    libro_diario: File | null;
+    plan_cuenta: File | null;
+    tipos_dte: File | null;
+    centro_responsabilidad: File | null;
+  }>({ libro_diario: null, plan_cuenta: null, tipos_dte: null, centro_responsabilidad: null });
+
+  /** Sucursales */
   const [boxes, setBoxes] = useState<any[]>(empresa?.onboarding?.configuracionEmpresa?.boxes || []);
 
   /* === Pasos (Step) === */
   const STEPS: StepKey[] = useMemo(() => {
     const arr: StepKey[] = ["productos", "identificacion", "documentos", "integracion"];
-    if (productos.includes("ANDESPOS_ENTERBOX")) arr.push("sucursales");
+    // Ahora Sucursales si ANDESPOS o ANDESPOS_ENTERBOX
+    if (productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) arr.push("sucursales");
     arr.push("resumen");
     return arr;
   }, [productos]);
@@ -291,17 +335,22 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
   const stepValid: Record<StepKey, boolean> = useMemo(() => {
     const needEF = productos.includes("ENTERFAC");
     const needAP = productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX");
+    const needLCE = productos.includes("LCE");
+
     const okEF = !needEF || (!!enterfac.empkey && !!enterfac.replica_password && !!enterfac.pass);
     const okAP = !needAP || (!!andespos.empkey && !!andespos.replica_password && !!andespos.pass);
+
+    const okLCE = !needLCE || (!!lce.libro_diario && !!lce.plan_cuenta); // obligatorios
+
     return {
       productos: productos.length > 0,
-      identificacion: okEF && okAP,
+      identificacion: okEF && okAP && okLCE,
       documentos: true,
       integracion: true,
       sucursales: true,
       resumen: true,
     };
-  }, [productos, enterfac, andespos]);
+  }, [productos, enterfac, andespos, lce]);
 
   const progress = ((STEPS.indexOf(current) + 1) / STEPS.length) * 100;
 
@@ -334,15 +383,6 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
     setEnterfac((p: any) => ({ ...p, url_visto_bueno: file }));
   };
 
-  const handleCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setBatchError("");
-    if (!file) { setCsvFile(null); return; }
-    const isCsv = /\.csv$/i.test(file.name) || file.type.includes("csv");
-    if (!isCsv) { setBatchError("Solo se permiten archivos .csv"); setCsvFile(null); return; }
-    setCsvFile(file);
-  };
-
   /* === Guardar === */
   const save = () => {
     // Validaciones layout EF
@@ -357,11 +397,6 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
           return alert("La URL del layout Custom es obligatoria y válida.");
         }
       }
-      if (!enterfac.integracion) return alert("Selecciona el tipo de integración para Enterfact.");
-      if (enterfac.integracion === "Batch") {
-        if (!csvFile) return alert("Debes subir un archivo .csv para Batch.");
-        if (batchError) return alert(batchError);
-      }
     }
 
     const payload = {
@@ -373,19 +408,25 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
         layout_key: enterfac.layout_key,
         url_layout_selected: enterfac.url_layout_selected,
         url_layout_custom: enterfac.url_layout_custom,
-        integracion: enterfac.integracion,
         modalidades: {
           general: enterfacGeneral || null,
           porDocumento: enterfacPorDoc,
         },
+        integraciones: {
+          general: efIntegracionGeneral,
+          porDocumento: efIntegracionPorDoc,
+          wsTipoPorDocumento: efWsTipoPorDoc,
+          batchPorDocumento: Object.fromEntries(
+            Object.entries(efBatchPorDoc).map(([k, v]) => [k, { codificacion: v?.codificacion ?? "ANSI", csvNombre: v?.file?.name ?? null }])
+          ),
+        },
         versiones: {
-          appFull: enterfac.version_app_full,
+          // AppFull eliminado
           winPlugin: enterfac.version_winplugin,
           winEmisor: enterfac.version_emisor,
           winEmisorWS: enterfac.version_win_emisor_ws,
           winBatch: enterfac.version_winbatch,
         },
-        batch: enterfac.integracion === "Batch" ? { codificacion, csvNombre: csvFile?.name ?? null } : null,
       },
       andespos: {
         ...andespos,
@@ -394,7 +435,13 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
           porDocumento: andesPorDoc,
         },
       },
-      boxes: productos.includes("ANDESPOS_ENTERBOX") ? boxes : [],
+      lce: {
+        libro_diario: lce.libro_diario?.name ?? null,
+        plan_cuenta: lce.plan_cuenta?.name ?? null,
+        tipos_dte: lce.tipos_dte?.name ?? null,
+        centro_responsabilidad: lce.centro_responsabilidad?.name ?? null,
+      },
+      boxes: (productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) ? boxes : [],
     };
 
     onSave?.(payload);
@@ -489,6 +536,35 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
             </div>
           </div>
         )}
+
+        {/* LCE */}
+        {productos.includes("LCE") && (
+          <div className="border rounded p-3">
+            <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>LCE</h6>
+            <div className="row g-3">
+              <div className="col-md-6">
+                <FieldLabel required>Libro Diario (.csv)</FieldLabel>
+                <input type="file" accept=".csv,text/csv" className="form-control"
+                  onChange={e => setLce(prev => ({ ...prev, libro_diario: e.target.files?.[0] ?? null }))} />
+              </div>
+              <div className="col-md-6">
+                <FieldLabel required>Plan de Cuenta (.csv)</FieldLabel>
+                <input type="file" accept=".csv,text/csv" className="form-control"
+                  onChange={e => setLce(prev => ({ ...prev, plan_cuenta: e.target.files?.[0] ?? null }))} />
+              </div>
+              <div className="col-md-6">
+                <FieldLabel>Tipos de DTE (.csv) — opcional</FieldLabel>
+                <input type="file" accept=".csv,text/csv" className="form-control"
+                  onChange={e => setLce(prev => ({ ...prev, tipos_dte: e.target.files?.[0] ?? null }))} />
+              </div>
+              <div className="col-md-6">
+                <FieldLabel>Centro de responsabilidad (.csv) — opcional</FieldLabel>
+                <input type="file" accept=".csv,text/csv" className="form-control"
+                  onChange={e => setLce(prev => ({ ...prev, centro_responsabilidad: e.target.files?.[0] ?? null }))} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -497,6 +573,8 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
   const renderDocumentos = () => {
     const labelDte = (d: { id: DteKey; nombre: string }) =>
       (d.id === "Comanda" || d.id === "TNT") ? d.nombre : `${d.nombre} (${d.id})`;
+
+    const integraciones: IntegracionTipo[] = ["Transferencia de Archivo", "Batch", "Web Service", "Web"];
 
     return (
       <div>
@@ -623,7 +701,7 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                 </div>
               </div>
 
-              {/* Modalidad de Emisión — ENTERFACT (General + overrides) */}
+              {/* Modalidad de Emisión — ENTERFACT */}
               <div className="col-12 mt-4">
                 <FieldLabel>Modalidad de Emisión — General (por documento)</FieldLabel>
                 <select
@@ -663,6 +741,87 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Integración por documento — ENTERFACT */}
+              <div className="col-12 mt-4">
+                <FieldLabel>Tipo de Integración — General (multi-selección)</FieldLabel>
+                <div className="d-flex flex-wrap gap-3 mb-3">
+                  {integraciones.map(int => {
+                    const checked = efIntegracionGeneral.includes(int);
+                    return (
+                      <div className="form-check" key={int}>
+                        <input
+                          className="form-check-input" type="checkbox" id={`ef-int-gen-${int}`}
+                          checked={checked}
+                          onChange={(e) => {
+                            setEfIntegracionGeneral(prev => e.target.checked ? [...prev, int] : prev.filter(x => x !== int));
+                          }}
+                        />
+                        <label className="form-check-label" htmlFor={`ef-int-gen-${int}`}>{int}</label>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {((enterfac.dte_habilitados || []) as DteKey[]).map((id) => {
+                  const meta = [...DTE_CATALOGO["Nacionales"], ...DTE_CATALOGO["Exportación"]].find(x => x.id === id);
+                  if (!meta) return null;
+                  const eff = efIntegracionPorDoc[id] ?? efIntegracionGeneral;
+                  const hasWS = (eff || []).includes("Web Service");
+                  return (
+                    <div key={id} className="border rounded p-2 mb-2">
+                      <div className="mb-2"><strong>{meta.nombre} ({meta.id})</strong></div>
+                      <div className="d-flex flex-wrap gap-3">
+                        {integraciones.map(int => {
+                          const checked = (efIntegracionPorDoc[id] ?? []).includes(int);
+                          return (
+                            <div className="form-check" key={`${id}-${int}`}>
+                              <input
+                                className="form-check-input" type="checkbox" id={`ef-int-${id}-${int}`}
+                                checked={checked}
+                                onChange={(e) => {
+                                  setEfIntegracionPorDoc(prev => {
+                                    const curr = prev[id] ?? [];
+                                    const next = e.target.checked ? Array.from(new Set([...curr, int])) : curr.filter(x => x !== int);
+                                    return { ...prev, [id]: next };
+                                  });
+                                }}
+                              />
+                              <label className="form-check-label" htmlFor={`ef-int-${id}-${int}`}>{int}</label>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Tipo de WS cuando corresponda */}
+                      {(hasWS || (efIntegracionPorDoc[id] || []).includes("Web Service")) && (
+                        <div className="mt-2">
+                          <FieldLabel>Tipo de Web Service</FieldLabel>
+                          <select
+                            className="form-select"
+                            value={efWsTipoPorDoc[id] || ""}
+                            onChange={(e) => setEfWsTipoPorDoc(prev => ({ ...prev, [id]: e.target.value as WebServiceTipo }))}
+                          >
+                            <option value="">Seleccione</option>
+                            <option value="REST">API REST</option>
+                            <option value="SOAP">SOAP</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Admin de Folios (a elección del ejecutivo) */}
+              <div className="col-12 mt-3">
+                <FieldLabel>Administrador de Folios</FieldLabel>
+                <select className="form-select" value={enterfac.admin_folios}
+                  onChange={e => setEnterfac((p: any) => ({ ...p, admin_folios: e.target.value }))}>
+                  <option value="EN">Enternet</option>
+                  <option value="CL">Cliente</option>
+                </select>
               </div>
             </div>
           </div>
@@ -788,68 +947,6 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
         <div className="border rounded p-3 mb-3">
           <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>ENTERFACT</h6>
           <div className="row g-3">
-            {/* Integración */}
-            <div className="col-md-4">
-              <FieldLabel>Tipo de Integración</FieldLabel>
-              <select
-                className="form-select"
-                value={enterfac.integracion}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setEnterfac((p: any) => ({
-                    ...p,
-                    integracion: v,
-                    // Regla: con Integración => Cliente ; sin integración (Web) => Enternet
-                    admin_folios: v === "Web" ? "EN" : "CL",
-                    tipo_ws: v === "Web Service" ? p.tipo_ws : "",
-                  }));
-                }}
-              >
-                <option value="">Seleccione</option>
-                <option value="Transferencia de Archivo">Transferencia de Archivo</option>
-                <option value="Batch">Batch</option>
-                <option value="Web Service">Web Service</option>
-                <option value="Web">Web</option>
-              </select>
-            </div>
-
-            {/* Web Service -> Tipo */}
-            {enterfac.integracion === "Web Service" && (
-              <div className="col-md-4">
-                <FieldLabel>Tipo de Web Service</FieldLabel>
-                <select
-                  className="form-select"
-                  value={enterfac.tipo_ws || ""}
-                  onChange={(e) => setEnterfac((p: any) => ({ ...p, tipo_ws: e.target.value }))}
-                >
-                  <option value="">Seleccione</option>
-                  <option value="REST">API REST</option>
-                  <option value="SOAP">SOAP</option>
-                </select>
-              </div>
-            )}
-
-            {/* Batch -> CSV + Codificación (sin preview) */}
-            {enterfac.integracion === "Batch" && (
-              <>
-                <div className="col-md-4">
-                  <FieldLabel>Archivo .csv</FieldLabel>
-                  <input type="file" className="form-control" accept=".csv,text/csv" onChange={handleCsv} />
-                  {batchError && <div className="invalid-feedback d-block">{batchError}</div>}
-                </div>
-                <div className="col-md-4">
-                  <FieldLabel>Codificación</FieldLabel>
-                  <select
-                    className="form-select"
-                    value={codificacion}
-                    onChange={(e) => setCodificacion(e.target.value as "ANSI" | "UTF-8")}
-                  >
-                    <option value="ANSI">ANSI</option>
-                    <option value="UTF-8">UTF-8</option>
-                  </select>
-                </div>
-              </>
-            )}
 
             {/* Tipo de Mensaje */}
             <div className="col-md-3">
@@ -903,29 +1000,60 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
               </select>
             </div>
 
-            {/* Admin de Folios — fijado por regla */}
-            <div className="col-md-3">
-              <FieldLabel>Administrador de Folios</FieldLabel>
-              <select className="form-select" value={enterfac.admin_folios} disabled>
-                <option value="EN">Enternet</option>
-                <option value="CL">Cliente</option>
-              </select>
-              <small className="text-muted">
-                {enterfac.integracion === "Web" ? "Sin integración → Enternet" : "Con integración → Cliente"}
-              </small>
+            {/* Batch por documento (CAM + Codificación + preview) */}
+            <div className="col-12">
+              <SectionTitle>Configuración Batch por Documento</SectionTitle>
+              {((enterfac.dte_habilitados || []) as DteKey[])
+                .filter((id) => (efIntegracionPorDoc[id] ?? efIntegracionGeneral).includes("Batch"))
+                .map((id) => {
+                  const meta = [...DTE_CATALOGO["Nacionales"], ...DTE_CATALOGO["Exportación"]].find(x => x.id === id);
+                  const cfg = efBatchPorDoc[id] ?? { file: null, codificacion: "ANSI", preview: [] };
+                  return (
+                    <div key={id} className="border rounded p-2 mb-3">
+                      <div className="mb-2"><strong>{meta?.nombre} ({id})</strong></div>
+                      <div className="row g-3">
+                        <div className="col-md-4">
+                          <FieldLabel>CAM (.csv)</FieldLabel>
+                          <input
+                            type="file" className="form-control" accept=".csv,text/csv"
+                            onChange={(e) => handleCsvPerDoc(id, e.target.files?.[0] ?? null, cfg.codificacion)}
+                          />
+                        </div>
+                        <div className="col-md-3">
+                          <FieldLabel>Codificación</FieldLabel>
+                          <select
+                            className="form-select"
+                            value={cfg.codificacion}
+                            onChange={(e) => {
+                              const cod = e.target.value as "ANSI" | "UTF-8";
+                              const f = cfg.file ?? null;
+                              handleCsvPerDoc(id, f, cod);
+                            }}
+                          >
+                            <option value="ANSI">ANSI</option>
+                            <option value="UTF-8">UTF-8</option>
+                          </select>
+                        </div>
+                        {!!cfg.preview.length && (
+                          <div className="col-12">
+                            <div className="table-responsive">
+                              <table className="table table-sm table-bordered">
+                                <tbody>
+                                  {cfg.preview.map((row, i) => (
+                                    <tr key={i}>{row.map((c, j) => <td key={j}>{c}</td>)}</tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
 
-            {/* Versionado con listas */}
-            <div className="col-md-3">
-              <FieldLabel>Versión AppFull</FieldLabel>
-              <input
-                className="form-control"
-                value={enterfac.version_app_full}
-                onChange={(e) => setEnterfac((p: any) => ({ ...p, version_app_full: e.target.value }))}
-                placeholder="2024.x"
-              />
-            </div>
-
+            {/* Versionado Enterfact (sin AppFull) */}
             <div className="col-md-3">
               <FieldLabel>Versión WinPlugin</FieldLabel>
               <select
@@ -1026,14 +1154,14 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
               </select>
             </div>
             <div className="col-md-3">
-              <FieldLabel>Versión WinEmisor</FieldLabel>
+              <FieldLabel>WinEmisor POS — Versión</FieldLabel>
               <select
                 className="form-select"
                 value={andespos.version_emisor}
                 onChange={(e) => setAndespos((p: any) => ({ ...p, version_emisor: e.target.value }))}
               >
                 <option value="">Seleccione</option>
-                {["20230615","20231003","20231109","20240930","20241004"].map(v => (
+                {["2408","2503"].map(v => (
                   <option key={v} value={v}>{v}</option>
                 ))}
               </select>
@@ -1044,8 +1172,90 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
     </div>
   );
 
-  /* === Render Resumen === */
-  const renderResumen = () => (
+  /* === Render Sucursales === */
+  const renderSucursales = () => {
+    const isEnterbox = productos.includes("ANDESPOS_ENTERBOX");
+    const isAndesPOS = productos.includes("ANDESPOS");
+
+    return (
+      <div>
+        <SectionTitle>Sucursales</SectionTitle>
+
+        {/* AndesPOS: módulo placeholder (obligatorio pero sin contenido) */}
+        {isAndesPOS && !isEnterbox && (
+          <div className="alert alert-info">
+            Este módulo de sucursales para <strong>AndesPOS</strong> está creado pero <em>sin contenido</em> por ahora.
+          </div>
+        )}
+
+        {/* AndesPOS Enterbox: nuevos campos por sucursal */}
+        {isEnterbox && (
+          <>
+            <div className="mb-3">
+              <FieldLabel>Cantidad de Sucursales</FieldLabel>
+              <input
+                type="number" className="form-control" min={1}
+                value={boxes.length || 1}
+                onChange={e => setBoxes(Array.from({ length: Math.max(1, Number(e.target.value || 1)) }, (_, i) => boxes[i] || {}))}
+              />
+            </div>
+            {boxes.map((box, i) => (
+              <div key={i} className="card p-3 mb-3">
+                <h6>Sucursal #{i + 1}</h6>
+                <div className="row g-3">
+                  <div className="col-md-3"><FieldLabel>ID BOX</FieldLabel>
+                    <input className="form-control" value={box.idBox || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], idBox: e.target.value }; return n; })} />
+                  </div>
+                  <div className="col-md-3"><FieldLabel>Punto de Acceso Key</FieldLabel>
+                    <input className="form-control" value={box.puntoAccesoKey || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], puntoAccesoKey: e.target.value }; return n; })} />
+                  </div>
+                  <div className="col-md-3"><FieldLabel>Router</FieldLabel>
+                    <input className="form-control" value={box.router || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], router: e.target.value }; return n; })} />
+                  </div>
+                  <div className="col-md-3"><FieldLabel>IP</FieldLabel>
+                    <input className="form-control" value={box.ip || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], ip: e.target.value }; return n; })} />
+                  </div>
+                  <div className="col-md-3"><FieldLabel>MAC eth0</FieldLabel>
+                    <input className="form-control" value={box.macEth0 || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], macEth0: e.target.value }; return n; })} />
+                  </div>
+                  <div className="col-md-3"><FieldLabel>MAC wlan0</FieldLabel>
+                    <input className="form-control" value={box.macWlan0 || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], macWlan0: e.target.value }; return n; })} />
+                  </div>
+                  <div className="col-md-3"><FieldLabel>Tipo de Box</FieldLabel>
+                    <select className="form-select" value={box.tipoBox || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], tipoBox: e.target.value }; return n; })}>
+                      <option value="">Seleccione</option>
+                      <option value="PI3">PI3</option>
+                      <option value="PI4">PI4</option>
+                    </select>
+                  </div>
+                  <div className="col-md-3"><FieldLabel>POS Box Versión</FieldLabel>
+                    <input className="form-control" placeholder="Ej: 1.0.0" value={box.posBoxVersion || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], posBoxVersion: e.target.value }; return n; })} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    );
+  };
+
+/* === Render Resumen === */
+function renderResumen() {
+  const nombreDte = (id: DteKey) => {
+    const n = [
+      ...DTE_CATALOGO["Nacionales"],
+      ...DTE_CATALOGO["Exportación"],
+      ...DTE_CATALOGO["No tributarios"],
+    ].find(d => d.id === id);
+    if (!n) return id;
+    return (id === "Comanda" || id === "TNT") ? n.nombre : `${n.nombre} (${id})`;
+  };
+
+  const efDtesSel = (enterfac.dte_habilitados || []) as DteKey[];
+  const apDtesSel = (andespos.dte_habilitados || []) as DteKey[];
+
+  return (
     <div>
       <SectionTitle>Resumen Final</SectionTitle>
 
@@ -1083,22 +1293,28 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
 
               <div className="col-12 mt-2">
                 <strong>DTE Habilitados:</strong>
-                <div>
-                  {enterfac.dte_habilitados?.length
-                    ? enterfac.dte_habilitados.map((id: string) => <Chip key={id}>{id}</Chip>)
-                    : dash}
-                </div>
+                <div>{efDtesSel.length ? efDtesSel.map(id => <Chip key={id}>{id}</Chip>) : dash}</div>
               </div>
 
-              <div className="col-md-3"><strong>Integración:</strong> {fmt(enterfac.integracion)}</div>
+              {/* (Cuando añadamos modalidad por doc/integración en EF, se imprime aquí) */}
+              <div className="col-12 mt-2">
+                <strong>Modalidad de Emisión:</strong> <span className="ms-2 text-muted">—</span>
+              </div>
+
+              {/* Integraciones por documento (solo si ya las tienes en estado; si no, queda en —) */}
+              <div className="col-12 mt-2">
+                <strong>Integraciones por Documento:</strong> <span className="ms-2 text-muted">—</span>
+              </div>
+
+              <div className="col-md-3"><strong>Tipo de Mensaje:</strong> {fmt(enterfac.tipo_texto)}</div>
+              <div className="col-md-3"><strong>Parser:</strong> {fmt(enterfac.parser)}</div>
               <div className="col-md-3"><strong>Modalidad de Firma:</strong> {fmt(enterfac.modalidad_firma)}</div>
               <div className="col-md-3"><strong>Administrador de Folios:</strong> {fmt(enterfac.admin_folios)}</div>
 
-              <div className="col-md-3"><strong>Versión AppFull:</strong> {fmt(enterfac.version_app_full)}</div>
-              <div className="col-md-3"><strong>Versión WinPlugin:</strong> {fmt(enterfac.version_winplugin)}</div>
-              <div className="col-md-3"><strong>Versión WinEmisor:</strong> {fmt(enterfac.version_emisor)}</div>
-              <div className="col-md-3"><strong>Versión WinEmisor WS:</strong> {fmt(enterfac.version_win_emisor_ws)}</div>
-              <div className="col-md-3"><strong>Versión WinBatch:</strong> {fmt(enterfac.version_winbatch)}</div>
+              <div className="col-md-3"><strong>WinPlugin:</strong> {fmt(enterfac.version_winplugin)}</div>
+              <div className="col-md-3"><strong>WinEmisor:</strong> {fmt(enterfac.version_emisor)}</div>
+              <div className="col-md-3"><strong>WinEmisor WS:</strong> {fmt(enterfac.version_win_emisor_ws)}</div>
+              <div className="col-md-3"><strong>WinBatch:</strong> {fmt(enterfac.version_winbatch)}</div>
             </div>
           </div>
         </div>
@@ -1123,10 +1339,25 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
 
               <div className="col-12 mt-2">
                 <strong>DTE Habilitados:</strong>
-                <div>
-                  {andespos.dte_habilitados?.length
-                    ? andespos.dte_habilitados.map((id: string) => <Chip key={id}>{id}</Chip>)
-                    : dash}
+                <div>{apDtesSel.length ? apDtesSel.map(id => <Chip key={id}>{id}</Chip>) : dash}</div>
+              </div>
+
+              {/* Modalidad de Emisión — General + overrides */}
+              <div className="col-12 mt-2">
+                <strong>Modalidad de Emisión:</strong>
+                <div className="mt-1">
+                  <div className="mb-1">
+                    <Chip>General</Chip>
+                    <Chip>{andesGeneral || "—"}</Chip>
+                  </div>
+                  {apDtesSel.length
+                    ? apDtesSel.map((id: DteKey) => (
+                        <div key={`ap-mode-${id}`} className="mb-1">
+                          <Chip>{nombreDte(id)}</Chip>
+                          <Chip>{andesPorDoc[id] || andesGeneral || "—"}</Chip>
+                        </div>
+                      ))
+                    : <span>{dash}</span>}
                 </div>
               </div>
 
@@ -1134,7 +1365,7 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
               <div className="col-md-3"><strong>Tipo de Firma:</strong> {fmt(andespos.tipo_firma)}</div>
               <div className="col-md-3"><strong>Tipo de Mensaje:</strong> {fmt(andespos.tipo_texto)}</div>
               <div className="col-md-3"><strong>Administrador de Folios:</strong> {fmt(andespos.admin_folios)}</div>
-              <div className="col-md-3"><strong>Versión WinEmisor:</strong> {fmt(andespos.version_emisor)}</div>
+              <div className="col-md-3"><strong>WinEmisor POS:</strong> {fmt(andespos.version_emisor)}</div>
             </div>
           </div>
         </div>
@@ -1144,12 +1375,14 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
       {productos.includes("LCE") && (
         <div className="card mb-3">
           <div className="card-header font-primary" style={{ fontWeight: 700 }}>LCE</div>
-          <div className="card-body"><p>Este producto no requiere configuración adicional.</p></div>
+          <div className="card-body">
+            <p>Este producto no requiere configuración adicional.</p>
+          </div>
         </div>
       )}
 
-      {/* Sucursales (solo Enterbox) */}
-      {boxes?.length > 0 && productos.includes("ANDESPOS_ENTERBOX") && (
+      {/* Sucursales (Enterbox) */}
+      {productos.includes("ANDESPOS_ENTERBOX") && boxes?.length > 0 && (
         <div className="card">
           <div className="card-header font-primary" style={{ fontWeight: 700 }}>Sucursales Configuradas</div>
           <div className="card-body">
@@ -1169,49 +1402,7 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
       )}
     </div>
   );
-
-  /* === Render Sucursales (solo Enterbox) === */
-  const renderSucursales = () => (
-    <div>
-      <SectionTitle>Sucursales</SectionTitle>
-      <div className="mb-3">
-        <FieldLabel>Cantidad de Sucursales</FieldLabel>
-        <input
-          type="number" className="form-control" min={1}
-          value={boxes.length || 1}
-          onChange={e => setBoxes(Array.from({ length: Math.max(1, Number(e.target.value || 1)) }, (_, i) => boxes[i] || {}))}
-        />
-      </div>
-      {boxes.map((box, i) => (
-        <div key={i} className="card p-3 mb-3">
-          <h6>Sucursal #{i + 1}</h6>
-          <div className="row g-3">
-            <div className="col-md-3">
-              <FieldLabel>ID Box</FieldLabel>
-              <input className="form-control" value={box.idBox || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], idBox: e.target.value }; return n; })} />
-            </div>
-            <div className="col-md-3">
-              <FieldLabel>Router</FieldLabel>
-              <input className="form-control" value={box.router || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], router: e.target.value }; return n; })} />
-            </div>
-            <div className="col-md-3">
-              <FieldLabel>IP</FieldLabel>
-              <input className="form-control" value={box.ip || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], ip: e.target.value }; return n; })} />
-            </div>
-            <div className="col-md-3">
-              <FieldLabel>Versión Enterbox</FieldLabel>
-              <select className="form-select" value={box.enterbox || ""} onChange={e => setBoxes(b => { const n = [...b]; n[i] = { ...n[i], enterbox: e.target.value }; return n; })}>
-                <option value="">Seleccione</option>
-                <option value="PI3">PI3</option>
-                <option value="PI4">PI4</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
+}
   /* === Render Principal === */
   return (
     <div style={{ maxWidth: 900, margin: "2rem auto" }}>

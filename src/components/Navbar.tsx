@@ -1,6 +1,6 @@
-// src/components/Navbar.tsx
 import React from 'react'
 import { Menu, Bell } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { SearchBar } from './SearchBar'
 import { UserAvatar } from './UserAvatar'
 import { useAuth } from '@/hooks/useAuth'
@@ -11,11 +11,22 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { profile } = useAuth()
+  const role = profile?.perfil?.nombre
+
+  const dashboardPath =
+    role === 'COM'
+      ? '/comercial/dashboard'
+      : role === 'OB'
+      ? '/onboarding/mis-empresas'
+      : role === 'SAC'
+      ? '/sac/mis-empresas'      // 👈 SAC ejecutivo
+      : role === 'ADMIN_SAC'
+      ? '/sac/empresas-sac'
+      : '/dashboard'
 
   return (
     <nav className="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top">
       <div className="container-fluid px-4">
-        {/* Menu Toggle */}
         <button
           className="btn btn-outline-secondary d-lg-none me-3"
           type="button"
@@ -24,12 +35,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           <Menu size={20} />
         </button>
 
-        {/* Brand */}
-        <a className="navbar-brand font-display fw-bold text-primary" href="/dashboard">
+        <Link className="navbar-brand font-display fw-bold text-primary" to={dashboardPath}>
           Sistema Empresas
-        </a>
+        </Link>
 
-        {/* Center Search - Hidden on mobile */}
         <div className="d-none d-md-flex flex-grow-1 justify-content-center mx-4">
           <div style={{ maxWidth: '400px', width: '100%' }}>
             <SearchBar
@@ -39,9 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           </div>
         </div>
 
-        {/* Right Side */}
         <div className="d-flex align-items-center gap-3">
-          {/* Notifications */}
           <div className="position-relative">
             <button className="btn btn-outline-secondary position-relative">
               <Bell size={18} />
@@ -52,23 +59,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
             </button>
           </div>
 
-          {/* User Avatar */}
           <UserAvatar 
             user={{
               name: profile?.nombre || 'Usuario',
-              role: profile?.perfil?.nombre || '',
+              role: role || '',
               avatar: null
             }}
           />
         </div>
       </div>
 
-      {/* Mobile Search */}
       <div className="d-md-none border-top bg-light p-3">
-        <SearchBar
-          placeholder="Buscar empresa..."
-          variant="mobile"
-        />
+        <SearchBar placeholder="Buscar empresa..." variant="mobile" />
       </div>
     </nav>
   )

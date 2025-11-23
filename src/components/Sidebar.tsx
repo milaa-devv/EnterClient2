@@ -36,6 +36,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     isSacExecutive 
   } = usePermissions()
 
+  const role = profile?.perfil?.nombre
+  const dashboardPath =
+    role === 'COM'
+      ? '/comercial/dashboard'
+      : role === 'OB'
+      ? '/onboarding/mis-empresas'
+      : '/dashboard'
+
   // Items comunes para todos los perfiles
   const alwaysItems: SidebarItem[] = [
     {
@@ -69,7 +77,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       return [
         ...alwaysItems,
         { id: 'mis-empresas', label: 'Mis Empresas', icon: <Building2 className="nav-icon" />, path: '/onboarding/mis-empresas' },
-        { id: 'solicitudes-nuevas', label: 'Solicitudes Nuevas', icon: <Plus className="nav-icon" />, path: '/onboarding/solicitudes-nuevas', badge: 4 }
+        { id: 'solicitudes-nuevas', label: 'Solicitudes Nuevas', icon: <Plus className="nav-icon" />, path: '/onboarding/solicitudes-nuevas', badge: 4 },
+        { id: 'paso-produccion', label: 'Paso a Producción', icon: <Settings className="nav-icon" />, path: '/onboarding/paso-produccion' }
       ]
     }
     if (isSacAdmin()) {
@@ -142,33 +151,41 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <div>
               <h6 className="mb-0">{profile?.nombre}</h6>
               <small className="opacity-75">
-                {profile?.perfil?.nombre === 'COM' && 'Área Comercial'}
-                {profile?.perfil?.nombre === 'OB' && 'Ejecutivo Onboarding'}
-                {profile?.perfil?.nombre === 'ADMIN_OB' && 'Admin Onboarding'}
-                {profile?.perfil?.nombre === 'SAC' && 'Área SAC'}
-                {profile?.perfil?.nombre === 'ADMIN_SAC' && 'Admin SAC'}
+                {role === 'COM' && 'Área Comercial'}
+                {role === 'OB' && 'Ejecutivo Onboarding'}
+                {role === 'ADMIN_OB' && 'Admin Onboarding'}
+                {role === 'SAC' && 'Área SAC'}
+                {role === 'ADMIN_SAC' && 'Admin SAC'}
               </small>
             </div>
           </div>
         </div>
         <nav className="sidebar-nav">
           <ul className="nav flex-column">
+            {/* Dashboard por rol */}
             <li className="nav-item">
-              <NavLink to="/dashboard" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={onClose}>
+              <NavLink to={dashboardPath} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={onClose}>
                 <Building2 className="nav-icon" />
                 <span>Dashboard</span>
               </NavLink>
             </li>
+
             <li><hr className="my-3 mx-3" /></li>
+
             {sidebarItems.map(item => (
               <li key={item.id} className="nav-item">
-                <NavLink to={item.path} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={onClose}>
+                <NavLink
+                  to={item.path}
+                  className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                  onClick={onClose}
+                >
                   {item.icon}
                   <span>{item.label}</span>
                   {item.badge && <span className="badge bg-danger rounded-pill ms-auto">{item.badge}</span>}
                 </NavLink>
               </li>
             ))}
+
             {quickActions.length > 0 && (
               <>
                 <li><hr className="my-3 mx-3" /></li>

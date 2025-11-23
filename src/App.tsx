@@ -8,17 +8,45 @@ import EmpresaDetail from './pages/EmpresaDetail'
 import NuevaEmpresa from './pages/areas/NuevaEmpresa'
 import ConfiguracionEmpresaForm from './pages/areas/ConfiguracionEmpresaForm'
 import PapForm from './pages/areas/PapForm'
-import OnboardingSolicitudesNuevas from './pages/areas/OnboardingSolicitudesNuevas' // 👈 NUEVO
+import OnboardingSolicitudesNuevas from './pages/areas/OnboardingSolicitudesNuevas'
+import PasoProduccion from '@/pages/onboarding/PasoProduccion'
+
+// Dashboards por área
+import ComercialDashboard from '@/pages/areas/ComercialDashboard'
+import OnboardingDashboard from '@/pages/areas/OnboardingDashboard'
+import SacDashboard from '@/pages/areas/SacDashboard' // 👈 NUEVO
 
 const App = () => {
   const { profile } = useAuth()
 
   if (!profile) return <Login />
 
+  const role = profile?.perfil?.nombre
+  const defaultDashboardPath =
+    role === 'COM'
+      ? '/comercial/dashboard'
+      : role === 'OB'
+      ? '/onboarding/mis-empresas'
+      : role === 'SAC'
+      ? '/sac/mis-empresas'
+      : role === 'ADMIN_SAC'
+      ? '/sac/empresas-sac'
+      : '/dashboard'
+
   return (
     <Routes>
       <Route element={<MainLayout />}>
-        <Route path="/" element={<Dashboard />} />
+        {/* Redirección inicial según rol */}
+        <Route path="/" element={<Navigate to={defaultDashboardPath} />} />
+
+        {/* Dashboards */}
+        <Route path="/dashboard" element={<Dashboard />} />
+         <Route path="/empresas/activas" element={<Dashboard />} />
+        <Route path="/comercial/dashboard" element={<ComercialDashboard />} />
+        <Route path="/onboarding/mis-empresas" element={<OnboardingDashboard />} />
+        <Route path="/sac/mis-empresas" element={<SacDashboard />} /> {/* 👈 NUEVA RUTA */}
+
+        {/* Otras rutas */}
         <Route path="/empresa/:empkey" element={<EmpresaDetail />} />
         <Route path="/crear-empresa" element={<NuevaEmpresa />} />
         <Route
@@ -26,12 +54,12 @@ const App = () => {
           element={<ConfiguracionEmpresaForm onSave={() => {}} />}
         />
         <Route path="/crear-sac" element={<PapForm />} />
-
-        {/* 👇 NUEVA RUTA PARA EL MENÚ DEL SIDEBAR */}
         <Route path="/onboarding/solicitudes-nuevas" element={<OnboardingSolicitudesNuevas />} />
+        <Route path="/onboarding/paso-produccion" element={<PasoProduccion />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" />} />
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to={defaultDashboardPath} />} />
     </Routes>
   )
 }
