@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { BackButton } from "@/components/BackButton";
 
 /** URL /exec del Web App de Apps Script */
 const APPS_SCRIPT_URL =
@@ -422,9 +423,19 @@ export default function PasoProduccion() {
   }
 
   /* ====================== Render ====================== */
+
   return (
     <div className="container py-4" style={{ maxWidth: 980 }}>
-      <h4 className="mb-3">Paso a Producción</h4>
+      {/* Header con botón Atrás */}
+      <div className="d-flex align-items-center gap-3 mb-3">
+        <BackButton fallback="/onboarding/mis-empresas" />
+        <div>
+          <h4 className="mb-1">Paso a Producción</h4>
+          <p className="text-muted small mb-0">
+            Configura los datos necesarios para coordinar el PAP con SAC.
+          </p>
+        </div>
+      </div>
 
       {/* 1. Horario */}
       <div className="card mb-3">

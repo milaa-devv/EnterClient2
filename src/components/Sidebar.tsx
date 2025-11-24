@@ -1,12 +1,12 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth, usePermissions } from '@/hooks/useAuth'
-import { 
-  Building2, 
-  Plus, 
-  Clock, 
-  History, 
-  Bell, 
+import {
+  Building2,
+  Plus,
+  Clock,
+  History,
+  Bell,
   Users,
   CheckCircle,
   AlertTriangle,
@@ -28,12 +28,12 @@ interface SidebarItem {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { profile } = useAuth()
-  const { 
-    isComercial, 
-    isOnboardingAdmin, 
-    isOnboardingExecutive, 
-    isSacAdmin, 
-    isSacExecutive 
+  const {
+    isComercial,
+    isOnboardingAdmin,
+    isOnboardingExecutive,
+    isSacAdmin,
+    isSacExecutive
   } = usePermissions()
 
   const role = profile?.perfil?.nombre
@@ -41,8 +41,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     role === 'COM'
       ? '/comercial/dashboard'
       : role === 'OB'
-      ? '/onboarding/mis-empresas'
-      : '/dashboard'
+        ? '/onboarding/dashboard'      // 👈 antes apuntaba a /onboarding/mis-empresas
+        : role === 'SAC'
+          ? '/sac/mis-empresas'
+          : role === 'ADMIN_SAC'
+            ? '/sac/empresas-sac'
+            : '/dashboard'
+
 
   // Items comunes para todos los perfiles
   const alwaysItems: SidebarItem[] = [
@@ -112,9 +117,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       ]
     }
     if (isOnboardingExecutive()) {
-      return [
-        { id: 'completar-onboarding', label: 'Marcar Completado', icon: <CheckCircle className="nav-icon" />, path: '/onboarding/acciones/completar' }
-      ]
     }
     if (isSacAdmin()) {
       return [

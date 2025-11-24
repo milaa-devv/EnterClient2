@@ -10,16 +10,16 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
-  const { profile } = useAuth()
+  const { profile, logout } = useAuth()
   const role = profile?.perfil?.nombre
 
   const dashboardPath =
     role === 'COM'
       ? '/comercial/dashboard'
       : role === 'OB'
-      ? '/onboarding/mis-empresas'
+      ? '/onboarding/dashboard'
       : role === 'SAC'
-      ? '/sac/mis-empresas'      // 👈 SAC ejecutivo
+      ? '/sac/mis-empresas'
       : role === 'ADMIN_SAC'
       ? '/sac/empresas-sac'
       : '/dashboard'
@@ -59,7 +59,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
             </button>
           </div>
 
-          <UserAvatar 
+          {/* Botón cerrar sesión visible siempre */}
+          <button
+            className="btn btn-outline-secondary d-none d-md-inline-flex"
+            onClick={logout}
+          >
+            Cerrar sesión
+          </button>
+
+          <UserAvatar
             user={{
               name: profile?.nombre || 'Usuario',
               role: role || '',
@@ -70,7 +78,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
       </div>
 
       <div className="d-md-none border-top bg-light p-3">
-        <SearchBar placeholder="Buscar empresa..." variant="mobile" />
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <SearchBar placeholder="Buscar empresa..." variant="mobile" />
+          <button className="btn btn-outline-secondary ms-2" onClick={logout}>
+            Cerrar sesión
+          </button>
+        </div>
       </div>
     </nav>
   )

@@ -24,6 +24,8 @@ interface UseEmpresaSearchReturn {
   setCurrentPage: (page: number) => void
   pageSize: number
   setPageSize: (size: number) => void
+  /** 🔄 Forzar recarga manual desde las pantallas (btn “Actualizar listado”) */
+  reload: () => void
 }
 
 export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
@@ -52,7 +54,6 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
         domicilio,
         telefono,
         correo,
-        estado,
         empresa_comercial (
           nombre_comercial,
           correo_comercial,
@@ -84,26 +85,20 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
 
       const filtered = data.filter((e) => {
         let keep = true
+
         switch (profile.perfil.nombre) {
           case 'COM':
             keep = !!e.empresa_comercial
             break
           case 'ADMIN_OB':
-            keep =
-              !e.empresa_onboarding ||
-              (e.empresa_onboarding &&
-                ['ONBOARDING', 'SAC', 'COMPLETADA'].includes(e.empresa_onboarding.estado))
+            // Admin OB ve todas las que tengan registro onboarding
+            keep = !!e.empresa_onboarding
             break
           case 'OB':
-            keep =
-              !e.empresa_onboarding ||
-              (e.empresa_onboarding &&
-                ['ONBOARDING', 'SAC', 'COMPLETADA'].includes(e.empresa_onboarding.estado) &&
-                e.empresa_onboarding.encargado_name === profile.rut)
+            // Ejecutivo OB ve todas las empresas (para tests / solicitudes nuevas)
+            keep = !!e.empresa_onboarding
             break
           case 'ADMIN_SAC':
-            keep = !!e.empresa_sac
-            break
           case 'SAC':
             keep = !!e.empresa_sac
             break
@@ -111,11 +106,10 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
             keep = true
             break
         }
-        if (!keep) {
-          console.log('Empresa filtrada fuera:', e.empkey, profile.perfil.nombre, e)
-        }
+
         return keep
       })
+
       return filtered
     },
     [profile]
@@ -133,18 +127,8 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
       const { data, error: searchError } = await query
       if (searchError) throw searchError
 
-      console.log('Datos crudos:', data)
+      let filtered = filterEmpresasByProfile((data || []) as EmpresaCompleta[])
 
-      let filtered: EmpresaCompleta[] = filterEmpresasByProfile((data || []) as EmpresaCompleta[])
-
-      console.log('Datos filtrados por perfil:', filtered)
-
-      // ➕ filtros por estado / otros
-      if (filters.estado) {
-        filtered = filtered.filter((e) => e.estado === filters.estado)
-      }
-
-      // Filtro de texto
       if (searchQuery.trim()) {
         const q = searchQuery.trim().toLowerCase()
         filtered = filtered.filter(
@@ -158,12 +142,18 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
       setEmpresas(filtered)
       setTotalCount(filtered.length)
     } catch (err: any) {
-      console.error(err)
       setError('Error al buscar empresas: ' + err.message)
     } finally {
       setLoading(false)
     }
-  }, [buildQuery, currentPage, pageSize, filterEmpresasByProfile, searchQuery, filters])
+  }, [buildQuery, currentPage, pageSize, filterEmpresasByProfile, searchQuery])
+
+  // 🔄 función pública para que las pantallas puedan refrescar a mano
+  const reload = useCallback(() => {
+    // si quieres que siempre vuelva a página 1 al refrescar:
+    setCurrentPage(1)
+    searchEmpresas()
+  }, [searchEmpresas])
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -171,11 +161,6 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
     }, 300)
     return () => clearTimeout(timeoutId)
   }, [searchEmpresas])
-
-  useEffect(() => {
-    searchEmpresas()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const updateFilters = useCallback((newFilters: Partial<SearchFilters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }))
@@ -195,6 +180,6 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
     setCurrentPage,
     pageSize,
     setPageSize,
+    reload,
   }
 }
-

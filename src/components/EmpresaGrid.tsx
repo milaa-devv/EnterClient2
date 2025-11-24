@@ -14,6 +14,12 @@ interface EmpresaGridProps {
   onPageChange: (page: number) => void
   pageSize?: number
   loading?: boolean
+
+  /** Si es true, muestra el botón "Ir al formulario de Onboarding" cuando no hay empresas */
+  showOnboardingButton?: boolean
+
+  /** (Opcional) callback para refrescar listado si algún día lo usamos desde aquí */
+  onRefresh?: () => void
 }
 
 export const EmpresaGrid: React.FC<EmpresaGridProps> = ({
@@ -24,6 +30,7 @@ export const EmpresaGrid: React.FC<EmpresaGridProps> = ({
   onPageChange,
   pageSize = 12,
   loading = false,
+  showOnboardingButton,   // 👉 sin valor por defecto: undefined = FALSO
 }) => {
   const totalPages = Math.ceil(totalCount / pageSize)
   const navigate = useNavigate()
@@ -49,12 +56,16 @@ export const EmpresaGrid: React.FC<EmpresaGridProps> = ({
         <p className="text-muted">
           Intenta ajustar los filtros de búsqueda o crear una nueva empresa.
         </p>
-        <button
-          className="btn btn-primary mt-3"
-          onClick={() => navigate('/configuracion-empresa')}
-        >
-          Ir al formulario de Onboarding
-        </button>
+
+        {/* 👉 Solo se muestra si explícitamente se pasa showOnboardingButton={true} */}
+        {showOnboardingButton && (
+          <button
+            className="btn btn-primary mt-3"
+            onClick={() => navigate('/configuracion-empresa')}
+          >
+            Ir al formulario de Onboarding
+          </button>
+        )}
       </div>
     )
   }
