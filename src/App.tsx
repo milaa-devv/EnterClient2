@@ -16,8 +16,8 @@ import ComercialDashboard from '@/pages/areas/ComercialDashboard'
 import OnboardingDashboard from '@/pages/areas/OnboardingDashboard'
 import SacDashboard from '@/pages/areas/SacDashboard'
 
-// NUEVO: página “Mis Empresas” de OB
-import OnboardingMisEmpresas from '@/pages/areas/OnboardingMisEmpresas'
+// NUEVO: página para asignar ejecutivos OB
+import OnboardingAsignarEjecutivos from '@/pages/areas/OnboardingAsignarEjecutivos'
 
 const App = () => {
   const { profile } = useAuth()
@@ -29,7 +29,7 @@ const App = () => {
     role === 'COM'
       ? '/comercial/dashboard'
       : role === 'OB'
-      ? '/onboarding/dashboard'          // 👈 ahora el OB cae en SU dashboard
+      ? '/onboarding/mis-empresas'
       : role === 'SAC'
       ? '/sac/mis-empresas'
       : role === 'ADMIN_SAC'
@@ -45,16 +45,26 @@ const App = () => {
         {/* Dashboards */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/empresas/activas" element={<Dashboard />} />
-
         <Route path="/comercial/dashboard" element={<ComercialDashboard />} />
-
-        {/* 👇 nuevo dashboard “onboarding/dashboard” */}
-        <Route path="/onboarding/dashboard" element={<OnboardingDashboard />} />
-
-        {/* 👇 “Mis Empresas” del ejecutivo OB */}
-        <Route path="/onboarding/mis-empresas" element={<OnboardingMisEmpresas />} />
-
+        <Route path="/onboarding/mis-empresas" element={<OnboardingDashboard />} />
         <Route path="/sac/mis-empresas" element={<SacDashboard />} />
+
+        {/* Rutas Onboarding Ejecutivo / Admin */}
+        <Route
+          path="/onboarding/solicitudes-nuevas"
+          element={<OnboardingSolicitudesNuevas />}
+        />
+        {/* Alias para Admin OB: Solicitudes Pendientes */}
+        <Route
+          path="/onboarding/solicitudes-pendientes"
+          element={<OnboardingSolicitudesNuevas />}
+        />
+        {/* NUEVA ruta: panel de Asignar Ejecutivos */}
+        <Route
+          path="/onboarding/asignar-ejecutivos"
+          element={<OnboardingAsignarEjecutivos />}
+        />
+        <Route path="/onboarding/paso-produccion" element={<PasoProduccion />} />
 
         {/* Otras rutas */}
         <Route path="/empresa/:empkey" element={<EmpresaDetail />} />
@@ -64,8 +74,6 @@ const App = () => {
           element={<ConfiguracionEmpresaForm onSave={() => {}} />}
         />
         <Route path="/crear-sac" element={<PapForm />} />
-        <Route path="/onboarding/solicitudes-nuevas" element={<OnboardingSolicitudesNuevas />} />
-        <Route path="/onboarding/paso-produccion" element={<PasoProduccion />} />
       </Route>
 
       {/* Fallback */}
