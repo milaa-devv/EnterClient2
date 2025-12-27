@@ -12,7 +12,7 @@ $headings-font-family: $font-primary;
 $headings-font-weight: $font-weight-semibold;
 
 // Importar Bootstrap
-@import "bootstrap/scss/bootstrap";
+@use "bootstrap/scss/bootstrap";
 
 // Clases personalizadas
 .font-display {
