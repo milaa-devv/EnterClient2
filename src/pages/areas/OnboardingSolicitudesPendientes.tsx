@@ -1,193 +1,336 @@
-// src/pages/areas/OnboardingSolicitudesPendientes.tsx
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, RefreshCw, UserPlus, Clock } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { formatRut } from '@/lib/utils'
+import { AlertCircle, ArrowLeft, Loader2, UserCheck } from 'lucide-react'
 
-type EstadoOnboarding = 'pendiente' | 'en_proceso' | 'completado' | 'cancelado'
+type OnboardingEstado = 'pendiente' | 'en_proceso' | 'completado' | 'cancelado'
 
-interface SolicitudPendiente {
-  id: number
+interface OnboardingAsignacion {
+  id: number            // id de empresa_onboarding
   empkey: number
-  estado: EstadoOnboarding
+  rut: string | null
+  nombre: string | null
+  producto: string | null
   encargado_name: string | null
+  encargado_rut: string | null
+  estado: OnboardingEstado
   updated_at: string | null
-  empresa: {
-    empkey: number
-    rut: string | null
-    nombre: string | null
-  } | null
 }
 
-const OnboardingSolicitudesPendientes: React.FC = () => {
-  const [solicitudes, setSolicitudes] = useState<SolicitudPendiente[]>([])
-  const [loading, setLoading] = useState(false)
+interface EjecutivoOB {
+  rut: string
+  nombre: string
+}
+
+const ESTADO_LABEL: Record<OnboardingEstado, string> = {
+  pendiente: 'Pendiente',
+  en_proceso: 'En proceso',
+  completado: 'Completado',
+  cancelado: 'Cancelado'
+}
+
+const sb = supabase as any
+
+const OnboardingAsignarEjecutivos: React.FC = () => {
+  const [empresas, setEmpresas] = useState<OnboardingAsignacion[]>([])
+  const [ejecutivos, setEjecutivos] = useState<EjecutivoOB[]>([])
+  const [loading, setLoading] = useState(true)
+  const [savingId, setSavingId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const [filtroEjecutivo, setFiltroEjecutivo] = useState<'todos' | 'sin_asignar' | string>('todos')
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | OnboardingEstado>('todos')
 
   const navigate = useNavigate()
 
-  const loadSolicitudes = async () => {
-    setLoading(true)
-    setError(null)
+  // ===== Carga de datos =====
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const { data: empresaData, error: empresaError } = await sb
+          .from('empresa')
+          .select(`
+            empkey,
+            rut,
+            nombre,
+            empresa_onboarding (
+              id,
+              encargado_name,
+              encargado_rut,
+              estado,
+              updated_at
+            ),
+            empresa_producto (
+              producto:producto ( tipo )
+            )
+          `)
 
-    const { data, error } = await supabase
-      .from('empresa_onboarding')
-      .select(
-        `
-        id,
-        empkey,
-        estado,
-        encargado_name,
-        updated_at,
-        empresa:empresa (
-          empkey,
-          rut,
-          nombre
-        )
-      `
-      )
-      .eq('estado', 'pendiente')
-      .order('updated_at', { ascending: false })
+        if (empresaError) throw empresaError
 
-    if (error) {
-      console.error(error)
-      setError('Error al cargar las solicitudes pendientes')
-    } else {
-      setSolicitudes((data || []) as SolicitudPendiente[])
+        const rows: OnboardingAsignacion[] = (empresaData ?? [])
+          .filter((row: any) => row.empresa_onboarding && row.empresa_onboarding.length > 0)
+          .map((row: any) => {
+            const ob = row.empresa_onboarding[0]
+            const prodRel = row.empresa_producto?.[0]?.producto
+
+            return {
+              id: ob.id as number,
+              empkey: row.empkey as number,
+              rut: row.rut as string | null,
+              nombre: row.nombre as string | null,
+              producto: (prodRel?.tipo as string | null) ?? null,
+              encargado_name: (ob.encargado_name as string | null) ?? null,
+              encargado_rut: (ob.encargado_rut as string | null) ?? null,
+              estado: (ob.estado as OnboardingEstado) ?? 'pendiente',
+              updated_at: (ob.updated_at as string | null) ?? null
+            }
+          })
+
+        setEmpresas(rows)
+
+        const { data: usuariosData, error: usuariosError } = await sb
+          .from('usuario')
+          .select('rut, nombre, perfil_usuarios!inner(nombre)')
+          .eq('perfil_usuarios.nombre', 'OB')
+
+        if (usuariosError) throw usuariosError
+
+        const ejecutivosRows: EjecutivoOB[] = (usuariosData ?? []).map((u: any) => ({
+          rut: u.rut as string,
+          nombre: u.nombre as string
+        }))
+
+        setEjecutivos(ejecutivosRows)
+      } catch (err: any) {
+        console.error(err)
+        setError(err.message ?? 'Error al cargar datos')
+      } finally {
+        setLoading(false)
+      }
     }
 
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    loadSolicitudes()
+    loadData()
   }, [])
 
-  const handleVerDetalle = (empkey: number) => {
-    navigate(`/empresa/${empkey}`)
+  // ===== Asignar / reasignar ejecutivo =====
+  const handleAsignar = async (row: OnboardingAsignacion, nuevoEncargadoRut: string) => {
+    setError(null)
+    setSavingId(row.id)
+
+    try {
+      const seleccionado = ejecutivos.find((e) => e.rut === nuevoEncargadoRut)
+      const nombreEncargado = seleccionado?.nombre ?? null
+      const ahora = new Date().toISOString()
+
+      const { error: updateError } = await sb
+        .from('empresa_onboarding')
+        .update({
+          encargado_name: nombreEncargado,
+          encargado_rut: nuevoEncargadoRut,
+          updated_at: ahora
+        })
+        .eq('id', row.id)
+
+      if (updateError) throw updateError
+
+      await sb.from('onboarding_notificacion').insert({
+        empkey: row.empkey,
+        tipo: 'asignado_ejecutivo',
+        descripcion: `Asignada a ${nombreEncargado ?? 'Sin nombre'} (${nuevoEncargadoRut})`
+      })
+
+      setEmpresas((prev) =>
+        prev.map((e) =>
+          e.id === row.id
+            ? {
+                ...e,
+                encargado_name: nombreEncargado,
+                encargado_rut: nuevoEncargadoRut,
+                updated_at: ahora
+              }
+            : e
+        )
+      )
+    } catch (err: any) {
+      console.error(err)
+      setError(err.message ?? 'Error al asignar ejecutivo')
+    } finally {
+      setSavingId(null)
+    }
   }
 
-  const handleIrAsignar = (empkey: number) => {
-    navigate('/onboarding/asignar-ejecutivos', { state: { empkey } })
-  }
+  // ===== Filtros y resumen =====
+  const empresasFiltradas = useMemo(
+    () =>
+      empresas.filter((e) => {
+        if (filtroEjecutivo === 'sin_asignar') {
+          if (e.encargado_rut) return false
+        } else if (filtroEjecutivo !== 'todos' && e.encargado_rut !== filtroEjecutivo) {
+          return false
+        }
 
-  const formatFecha = (iso?: string | null) => {
-    if (!iso) return '—'
-    const d = new Date(iso)
-    return d.toLocaleString('es-CL')
-  }
+        if (filtroEstado !== 'todos' && e.estado !== filtroEstado) return false
+        return true
+      }),
+    [empresas, filtroEjecutivo, filtroEstado]
+  )
 
+  const resumenPorEjecutivo = useMemo(() => {
+    const map = new Map<string, number>()
+
+    empresas.forEach((e) => {
+      const key = e.encargado_name ? e.encargado_name : 'Sin asignar'
+      map.set(key, (map.get(key) ?? 0) + 1)
+    })
+
+    return Array.from(map.entries()).map(([nombre, cant]) => ({ nombre, cant }))
+  }, [empresas])
+
+  // ===== Render =====
   return (
-    <div className="container-fluid">
-      {/* Header con botón Atrás */}
-      <div className="row mb-4">
-        <div className="col d-flex justify-content-between align-items-center">
-          <div className="d-flex align-items-center gap-2">
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => navigate(-1)}
-            >
-              <ArrowLeft size={16} /> Atrás
-            </button>
-            <div>
-              <h1 className="font-primary fw-bold mb-0">Solicitudes Pendientes</h1>
-              <p className="text-muted small mb-0">
-                Empresas que llegaron desde Comercial y aún no tienen ejecutivo asignado.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn btn-outline-primary d-flex align-items-center gap-2"
-            onClick={loadSolicitudes}
-            disabled={loading}
-          >
-            <RefreshCw size={16} className={loading ? 'spin' : ''} />
-            Actualizar listado
+    <div className="container-fluid py-4">
+      {/* Header + botón Atrás */}
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <div className="d-flex align-items-center gap-2">
+          <button className="btn btn-outline-secondary" onClick={() => navigate(-1)}>
+            <ArrowLeft size={16} className="me-1" />
+            Atrás
           </button>
+          <div>
+            <h1 className="h4 mb-0 font-primary">👥 Gestión de Ejecutivos</h1>
+            <p className="text-muted small mb-0">
+              Revisa y reasigna las empresas en Onboarding entre los distintos ejecutivos.
+            </p>
+          </div>
         </div>
       </div>
 
       {error && (
-        <div className="alert alert-danger">
-          {error}
+        <div className="alert alert-danger d-flex align-items-center gap-2">
+          <AlertCircle size={18} />
+          <span>{error}</span>
         </div>
       )}
 
       {loading ? (
         <div className="text-center py-5">
-          <div className="spinner-border text-primary mb-3" role="status">
-            <span className="visually-hidden">Cargando...</span>
-          </div>
-          <p className="text-muted">Cargando solicitudes pendientes…</p>
+          <Loader2 className="mb-2" size={32} />
+          <p className="text-muted">Cargando empresas…</p>
         </div>
-      ) : solicitudes.length === 0 ? (
+      ) : empresas.length === 0 ? (
         <div className="card">
           <div className="card-body text-center py-5">
-            <Clock size={48} className="text-muted mb-3" />
-            <h5 className="mb-2">No hay solicitudes pendientes</h5>
+            <UserCheck size={48} className="text-muted mb-3" />
+            <h5 className="mb-2">No hay empresas en Onboarding</h5>
             <p className="text-muted mb-0">
-              Cuando Comercial termine una empresa y aún no esté asignada, aparecerá aquí.
+              Cuando existan empresas en proceso, podrás gestionar sus asignaciones aquí.
             </p>
           </div>
         </div>
       ) : (
-        <div className="card">
-          <div className="card-header d-flex justify-content-between align-items-center">
-            <h5 className="card-title mb-0 font-primary fw-semibold">
-              Empresas sin ejecutivo asignado
-            </h5>
-            <span className="badge bg-warning">
-              {solicitudes.length} pendiente(s)
-            </span>
+        <>
+          {/* Resumen por ejecutivo */}
+          <div className="row mb-3">
+            {resumenPorEjecutivo.map((r) => (
+              <div key={r.nombre} className="col-md-3 mb-2">
+                <div className="card h-100">
+                  <div className="card-body py-2">
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span className="small text-muted text-truncate">{r.nombre}</span>
+                      <span className="badge bg-primary">{r.cant}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="card-body">
-            <div className="table-responsive">
+
+          {/* Filtros */}
+          <div className="card mb-3">
+            <div className="card-body d-flex flex-wrap gap-3">
+              <div>
+                <label className="form-label small mb-1">Filtrar por ejecutivo</label>
+                <select
+                  className="form-select form-select-sm"
+                  value={filtroEjecutivo}
+                  onChange={(e) => setFiltroEjecutivo(e.target.value as any)}
+                >
+                  <option value="todos">Todos</option>
+                  <option value="sin_asignar">Sin asignar</option>
+                  {ejecutivos.map((ej) => (
+                    <option key={ej.rut} value={ej.rut}>
+                      {ej.nombre} ({ej.rut})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label small mb-1">Filtrar por estado</label>
+                <select
+                  className="form-select form-select-sm"
+                  value={filtroEstado}
+                  onChange={(e) => setFiltroEstado(e.target.value as any)}
+                >
+                  <option value="todos">Todos</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="en_proceso">En proceso</option>
+                  <option value="completado">Completado</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabla principal */}
+          <div className="card">
+            <div className="card-body table-responsive">
               <table className="table align-middle">
                 <thead>
                   <tr>
                     <th>Empkey</th>
                     <th>RUT</th>
                     <th>Razón Social</th>
+                    <th>Producto</th>
                     <th>Estado</th>
-                    <th>Última actualización</th>
-                    <th className="text-end">Acciones</th>
+                    <th>Ejecutivo actual</th>
+                    <th>Cambiar ejecutivo</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {solicitudes.map((s) => (
-                    <tr key={s.id}>
-                      <td>{s.empkey}</td>
-                      <td>{s.empresa?.rut ? formatRut(s.empresa.rut) : '—'}</td>
-                      <td>{s.empresa?.nombre ?? '—'}</td>
+                  {empresasFiltradas.map((e) => (
+                    <tr key={e.id}>
+                      <td>{e.empkey}</td>
+                      <td>{e.rut ?? '—'}</td>
+                      <td>{e.nombre ?? 'Sin nombre'}</td>
+                      <td>{e.producto ?? '—'}</td>
                       <td>
-                        <span className="badge bg-warning text-dark text-uppercase">
-                          {s.estado}
+                        <span className="badge bg-light text-dark border">
+                          {ESTADO_LABEL[e.estado]}
                         </span>
                       </td>
-                      <td>
-                        <small className="text-muted">
-                          {formatFecha(s.updated_at)}
-                        </small>
-                      </td>
-                      <td>
-                        <div className="d-flex justify-content-end gap-2">
-                          <button
-                            className="btn btn-sm btn-outline-secondary"
-                            onClick={() => handleVerDetalle(s.empkey)}
-                          >
-                            Ver detalle
-                          </button>
-                          <button
-                            className="btn btn-sm btn-primary d-flex align-items-center gap-1"
-                            onClick={() => handleIrAsignar(s.empkey)}
-                          >
-                            <UserPlus size={14} />
-                            Asignar ejecutivo
-                          </button>
-                        </div>
+                      <td>{e.encargado_name ?? <span className="text-muted">Sin asignar</span>}</td>
+                      <td style={{ minWidth: 220 }}>
+                        <select
+                          className="form-select form-select-sm"
+                          value={e.encargado_rut ?? ''}
+                          onChange={(ev) => handleAsignar(e, ev.target.value)}
+                        >
+                          <option value="">Sin asignar</option>
+                          {ejecutivos.map((ej) => (
+                            <option key={ej.rut} value={ej.rut}>
+                              {ej.nombre} ({ej.rut})
+                            </option>
+                          ))}
+                        </select>
+                        {savingId === e.id && (
+                          <span className="text-muted small d-flex align-items-center gap-1 mt-1">
+                            <Loader2 size={14} className="spin" />
+                            Guardando…
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -195,10 +338,10 @@ const OnboardingSolicitudesPendientes: React.FC = () => {
               </table>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
 }
 
-export default OnboardingSolicitudesPendientes
+export default OnboardingAsignarEjecutivos

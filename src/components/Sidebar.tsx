@@ -1,3 +1,4 @@
+// src/components/Sidebar.tsx
 import React from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth, usePermissions } from '@/hooks/useAuth'
@@ -42,6 +43,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       ? '/comercial/dashboard'
       : role === 'OB'
       ? '/onboarding/mis-empresas'
+      : role === 'ADMIN_OB'
+      ? '/onboarding/admin-dashboard'
       : role === 'SAC'
       ? '/sac/mis-empresas'
       : role === 'ADMIN_SAC'
@@ -96,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         ...alwaysItems,
         {
           id: 'solicitudes-pendientes',
-          label: 'Solicitudes Pendientes',
+          label: '📥 Bandeja de Solicitudes',
           icon: <AlertTriangle className="nav-icon" />,
           path: '/onboarding/solicitudes-pendientes'
         },
@@ -204,7 +207,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       return [
         {
           id: 'asignar-ejecutivo',
-          label: 'Asignar Ejecutivo',
+          label: '👥 Gestión de Ejecutivos',
           icon: <Users className="nav-icon" />,
           path: '/onboarding/asignar-ejecutivos'
         }
@@ -273,9 +276,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         />
       )}
       <aside
-        className={`sidebar ${
-          isOpen === undefined ? '' : isOpen ? 'expanded' : 'hidden'
-        }`}
+        className={`sidebar ${isOpen === undefined ? '' : isOpen ? 'expanded' : 'hidden'}`}
       >
         <div className="sidebar-header">
           <div className="d-flex align-items-center gap-3">
@@ -298,9 +299,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             <li className="nav-item">
               <NavLink
                 to={dashboardPath}
-                className={({ isActive }) =>
-                  `nav-link ${isActive ? 'active' : ''}`
-                }
+                className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                 onClick={onClose}
               >
                 <Building2 className="nav-icon" />

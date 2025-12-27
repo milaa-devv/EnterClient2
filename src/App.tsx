@@ -1,3 +1,4 @@
+// src/App.tsx
 import '@/styles/bootstrap-custom.scss'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
@@ -16,8 +17,13 @@ import ComercialDashboard from '@/pages/areas/ComercialDashboard'
 import OnboardingDashboard from '@/pages/areas/OnboardingDashboard'
 import SacDashboard from '@/pages/areas/SacDashboard'
 
-// NUEVO: página para asignar ejecutivos OB
+// Panel asignar ejecutivos OB
 import OnboardingAsignarEjecutivos from '@/pages/areas/OnboardingAsignarEjecutivos'
+
+// NUEVO: vistas Admin Onboarding
+import OnboardingAdminDashboard from '@/pages/areas/OnboardingAdminDashboard'
+import OnboardingEmpresasProceso from '@/pages/areas/OnboardingEmpresasProceso'
+import OnboardingNotificaciones from '@/pages/areas/OnboardingNotificaciones'
 
 const App = () => {
   const { profile } = useAuth()
@@ -30,6 +36,8 @@ const App = () => {
       ? '/comercial/dashboard'
       : role === 'OB'
       ? '/onboarding/mis-empresas'
+      : role === 'ADMIN_OB'
+      ? '/onboarding/admin-dashboard'
       : role === 'SAC'
       ? '/sac/mis-empresas'
       : role === 'ADMIN_SAC'
@@ -42,28 +50,52 @@ const App = () => {
         {/* Redirección inicial según rol */}
         <Route path="/" element={<Navigate to={defaultDashboardPath} />} />
 
-        {/* Dashboards */}
+        {/* Dashboards generales */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/empresas/activas" element={<Dashboard />} />
+
+        {/* Dashboards por área */}
         <Route path="/comercial/dashboard" element={<ComercialDashboard />} />
         <Route path="/onboarding/mis-empresas" element={<OnboardingDashboard />} />
         <Route path="/sac/mis-empresas" element={<SacDashboard />} />
+
+        {/* Dashboard Admin OB */}
+        <Route
+          path="/onboarding/admin-dashboard"
+          element={<OnboardingAdminDashboard />}
+        />
 
         {/* Rutas Onboarding Ejecutivo / Admin */}
         <Route
           path="/onboarding/solicitudes-nuevas"
           element={<OnboardingSolicitudesNuevas />}
         />
-        {/* Alias para Admin OB: Solicitudes Pendientes */}
+
+        {/* Alias Admin OB: Bandeja de Solicitudes */}
         <Route
           path="/onboarding/solicitudes-pendientes"
           element={<OnboardingSolicitudesNuevas />}
         />
-        {/* NUEVA ruta: panel de Asignar Ejecutivos */}
+
+        {/* Empresas en Proceso (Admin OB) */}
+        <Route
+          path="/onboarding/empresas-proceso"
+          element={<OnboardingEmpresasProceso />}
+        />
+
+        {/* Gestión de Ejecutivos OB */}
         <Route
           path="/onboarding/asignar-ejecutivos"
           element={<OnboardingAsignarEjecutivos />}
         />
+
+        {/* Notificaciones OB */}
+        <Route
+          path="/onboarding/notificaciones"
+          element={<OnboardingNotificaciones />}
+        />
+
+        {/* Paso a Producción (Ejecutivo OB) */}
         <Route path="/onboarding/paso-produccion" element={<PasoProduccion />} />
 
         {/* Otras rutas */}
@@ -83,3 +115,4 @@ const App = () => {
 }
 
 export default App
+
