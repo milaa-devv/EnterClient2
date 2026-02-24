@@ -1,16 +1,40 @@
-import React, { useState, useEffect } from 'react'
+// src/pages/Dashboard.tsx
+import React, { useEffect, useMemo, useState } from 'react'
 import { useAuth, usePermissions } from '@/hooks/useAuth'
 import { EmpresaGrid } from '@/components/EmpresaGrid'
 import { useEmpresaSearch } from '@/hooks/useEmpresaSearch'
 import { useNavigate } from 'react-router-dom'
 
+// ✅ AJUSTA ESTE IMPORT SI TU CLIENTE SUPABASE ESTÁ EN OTRA RUTA
+import { supabase } from '@/lib/supabase'
+
+type AdminSacEmpresaRow = {
+  empkey: number
+  rut: string | null
+  nombre: string | null
+  logo: string | null
+
+  // (opcionales, por si tu view los trae)
+  fecha_paso_produccion?: string | null
+  ejecutivo_ob?: string | null
+  ejecutivo_sac?: string | null
+  estado_final?: string | null
+}
+
+const PAGE_SIZE = 12
+const ADMIN_SAC_VIEW_NAME = 'vw_empresas_activas_admin_sac' // ✅ nombre de tu VIEW
+
 const DashboardContent: React.FC = () => {
   const { profile, logout } = useAuth()
   const { canEditComercial } = usePermissions()
-
   const navigate = useNavigate()
 
+  const role = profile?.perfil?.nombre
+  const isAdminSac = role === 'ADMIN_SAC'
+
   const [searchText, setSearchText] = useState('')
+
+  // --- Flujo actual (no Admin SAC) ---
   const {
     empresas,
     currentPage,
@@ -23,15 +47,78 @@ const DashboardContent: React.FC = () => {
 
   useEffect(() => {
     // 👇 Empresas activas = COMPLETADAS por todas las áreas
-    updateFilters({ estado: 'COMPLETADA' })
-  }, [updateFilters])
+    // Solo aplica a vistas “normales”
+    if (!isAdminSac) {
+      updateFilters({ estado: 'COMPLETADA' })
+    }
+  }, [updateFilters, isAdminSac])
+
+  // --- Flujo Admin SAC (desde VIEW) ---
+  const [adminSacRows, setAdminSacRows] = useState<AdminSacEmpresaRow[]>([])
+  const [adminSacLoading, setAdminSacLoading] = useState(false)
+  const [adminSacTotal, setAdminSacTotal] = useState(0)
+  const [adminSacPage, setAdminSacPage] = useState(1)
+  const [adminSacError, setAdminSacError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isAdminSac) return
+
+    const run = async () => {
+      setAdminSacLoading(true)
+      setAdminSacError(null)
+
+      const from = (adminSacPage - 1) * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+      const q = searchText.trim()
+
+      let query = supabase
+        .from(ADMIN_SAC_VIEW_NAME)
+        .select('empkey,rut,nombre,logo,fecha_paso_produccion,ejecutivo_ob,ejecutivo_sac,estado_final', {
+          count: 'exact',
+        })
+
+      // Búsqueda por nombre / rut / (si es número) empkey
+      if (q) {
+        const parts: string[] = [
+          `nombre.ilike.%${q}%`,
+          `rut.ilike.%${q}%`,
+        ]
+        if (/^\d+$/.test(q)) {
+          parts.push(`empkey.eq.${q}`)
+        }
+        query = query.or(parts.join(','))
+      }
+
+      const { data, error, count } = await query
+        .order('nombre', { ascending: true, nullsFirst: false })
+        .range(from, to)
+
+      if (error) {
+        setAdminSacError(error.message)
+        setAdminSacRows([])
+        setAdminSacTotal(0)
+      } else {
+        setAdminSacRows((data as AdminSacEmpresaRow[]) ?? [])
+        setAdminSacTotal(count ?? 0)
+      }
+
+      setAdminSacLoading(false)
+    }
+
+    run()
+  }, [isAdminSac, adminSacPage, searchText])
 
   if (!profile) return null
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setSearchText(value)
-    setSearchQuery(value)
+
+    if (isAdminSac) {
+      setAdminSacPage(1)
+    } else {
+      setSearchQuery(value)
+    }
   }
 
   const handleCrearEmpresa = () => {
@@ -63,11 +150,39 @@ const DashboardContent: React.FC = () => {
       case 'SAC':
         return <h2>Empresas activas SAC</h2>
       case 'ADMIN_SAC':
-        return <h2>Empresas activas (Admin SAC)</h2>
+        return (
+          <>
+            <h2 className="mb-1">Empresas activas (Admin SAC)</h2>
+            <p className="text-muted mb-0">
+              Empresas completadas (estado final: PRODUCCIÓN / ACTIVA).
+            </p>
+          </>
+        )
       default:
         return <h2>Empresas activas</h2>
     }
   }
+
+  // Normalizamos data para EmpresaGrid
+  const empresasToRender = useMemo(() => {
+    if (!isAdminSac) return empresas
+    return adminSacRows.map((r) => ({
+      empkey: r.empkey,
+      rut: r.rut ?? undefined,
+      nombre: r.nombre ?? undefined,
+      logo: r.logo ?? undefined,
+      // 👇 puedes agregar campos extra si tu UI los usa
+      // estado_final: r.estado_final ?? undefined,
+      // ejecutivo_ob: r.ejecutivo_ob ?? undefined,
+      // ejecutivo_sac: r.ejecutivo_sac ?? undefined,
+      // fecha_paso_produccion: r.fecha_paso_produccion ?? undefined,
+    })) as any
+  }, [isAdminSac, empresas, adminSacRows])
+
+  const pageToRender = isAdminSac ? adminSacPage : currentPage
+  const totalToRender = isAdminSac ? adminSacTotal : totalCount
+  const setPageToRender = isAdminSac ? setAdminSacPage : setCurrentPage
+  const loadingToRender = isAdminSac ? adminSacLoading : loading
 
   return (
     <div className="container-fluid">
@@ -82,11 +197,17 @@ const DashboardContent: React.FC = () => {
 
           <input
             type="text"
-            placeholder="Buscar empresas por nombre, RUT o empresa"
+            placeholder="Buscar empresas por nombre, RUT o empkey"
             value={searchText}
             onChange={handleSearchChange}
             className="form-control mt-3"
           />
+
+          {isAdminSac && adminSacError && (
+            <div className="alert alert-danger mt-3 mb-0">
+              No pude cargar la vista <strong>{ADMIN_SAC_VIEW_NAME}</strong>: {adminSacError}
+            </div>
+          )}
         </div>
       </div>
 
@@ -94,12 +215,12 @@ const DashboardContent: React.FC = () => {
         {getDashboardHeader()}
         <div className="mt-3">
           <EmpresaGrid
-            empresas={empresas}
+            empresas={empresasToRender}
             viewMode="grid"
-            currentPage={currentPage}
-            totalCount={totalCount}
-            onPageChange={setCurrentPage}
-            loading={loading}
+            currentPage={pageToRender}
+            totalCount={totalToRender}
+            onPageChange={setPageToRender}
+            loading={loadingToRender}
           />
         </div>
       </div>

@@ -1,24 +1,25 @@
 import React from 'react'
-import { useAuth, usePermissions } from '@/hooks/useAuth'
-import { 
-  FileCheck, 
-  AlertTriangle, 
-  CheckCircle, 
+import { useNavigate } from 'react-router-dom'
+import { usePermissions } from '@/hooks/useAuth'
+import {
+  FileCheck,
+  AlertTriangle,
+  CheckCircle,
   Users,
   Settings,
   TrendingUp,
-  Building2
+  Building2,
 } from 'lucide-react'
 
 const SacDashboard: React.FC = () => {
-  const { profile } = useAuth()
-  const { isSacAdmin, isSacExecutive } = usePermissions()
+  const navigate = useNavigate()
+  const { isSacAdmin } = usePermissions()
 
   const estadisticas = {
     solicitudesPendientes: 6,
     empresasEnSac: 8,
     papCompletados: 15,
-    pendientesRevision: 2
+    pendientesRevision: 2,
   }
 
   return (
@@ -30,9 +31,7 @@ const SacDashboard: React.FC = () => {
             Dashboard SAC
             {isSacAdmin() && <span className="badge bg-success ms-2">Admin</span>}
           </h1>
-          <p className="text-muted mb-0">
-            Sistema de Atención al Cliente - Configuración PAP
-          </p>
+          <p className="text-muted mb-0">Sistema de Atención al Cliente - Configuración PAP</p>
         </div>
       </div>
 
@@ -111,7 +110,7 @@ const SacDashboard: React.FC = () => {
       </div>
 
       {/* Content based on role */}
-      {isSacAdmin() ? <SacAdminContent /> : <SacExecutiveContent />}
+      {isSacAdmin() ? <SacAdminContent /> : <SacExecutiveContent onCompletarPap={() => navigate('/sac/pap')} />}
     </div>
   )
 }
@@ -147,7 +146,9 @@ const SacAdminContent: React.FC = () => (
                   <td className="fw-bold text-primary">12345</td>
                   <td>21/09/2025</td>
                   <td>CAS-12345</td>
-                  <td><span className="badge bg-warning">Sin Asignar</span></td>
+                  <td>
+                    <span className="badge bg-warning">Sin Asignar</span>
+                  </td>
                   <td>
                     <div className="d-flex gap-1">
                       <button className="btn btn-sm btn-outline-primary">Ver</button>
@@ -157,6 +158,10 @@ const SacAdminContent: React.FC = () => (
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <div className="alert alert-info mb-0">
+            * Esta tabla está mock por ahora. Cuando quieras la conectamos a <code>pap_solicitud</code>.
           </div>
         </div>
       </div>
@@ -173,6 +178,7 @@ const SacAdminContent: React.FC = () => (
               <Users className="me-2" size={16} />
               Asignar Ejecutivo SAC
             </button>
+            {/* Eliminado: Solicitar revisión */}
             <button className="btn btn-outline-primary">
               <FileCheck className="me-2" size={16} />
               Revisar PAP
@@ -184,7 +190,7 @@ const SacAdminContent: React.FC = () => (
   </div>
 )
 
-const SacExecutiveContent: React.FC = () => (
+const SacExecutiveContent: React.FC<{ onCompletarPap: () => void }> = ({ onCompletarPap }) => (
   <div className="row g-4">
     <div className="col-lg-8">
       <div className="card">
@@ -208,14 +214,12 @@ const SacExecutiveContent: React.FC = () => (
         </div>
         <div className="card-body">
           <div className="d-grid gap-2">
-            <button className="btn btn-primary">
+            <button className="btn btn-primary" onClick={onCompletarPap}>
               <FileCheck className="me-2" size={16} />
               Completar PAP
             </button>
-            <button className="btn btn-outline-warning">
-              <AlertTriangle className="me-2" size={16} />
-              Solicitar Revisión
-            </button>
+
+            {/* Eliminado: Solicitar Revisión */}
           </div>
         </div>
       </div>

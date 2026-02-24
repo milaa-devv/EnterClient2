@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import type { EmpresaCompleta } from '@/types/empresa'
@@ -9,6 +9,13 @@ interface SearchFilters {
   fechaInicio?: string
   fechaFin?: string
   categoria?: string
+}
+
+export type OnboardingView = 'todas' | 'configurar' | 'proceso' | 'pap' | 'asignadas'
+
+interface UseEmpresaSearchOptions {
+  /** Solo aplica si el usuario es OB / ADMIN_OB */
+  obView?: OnboardingView
 }
 
 interface UseEmpresaSearchReturn {
@@ -28,7 +35,14 @@ interface UseEmpresaSearchReturn {
   reload: () => void
 }
 
-export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
+const firstOrSelf = <T,>(v: T | T[] | null | undefined): T | null => {
+  if (!v) return null
+  return Array.isArray(v) ? (v[0] ?? null) : v
+}
+
+export const useEmpresaSearch = (options?: UseEmpresaSearchOptions): UseEmpresaSearchReturn => {
+  const { profile } = useAuth()
+
   const [empresas, setEmpresas] = useState<EmpresaCompleta[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -38,7 +52,23 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(12)
 
-  const { profile } = useAuth()
+  const [reloadTick, setReloadTick] = useState(0)
+
+  const role = profile?.perfil?.nombre
+
+  // Join "inner" para que el conteo/paginación quede correcto por rol
+  const joins = useMemo(() => {
+    const isCom = role === 'COM'
+    const isOb = role === 'OB' || role === 'ADMIN_OB'
+    const isSac = role === 'SAC' || role === 'ADMIN_SAC'
+
+    return {
+      comercial: isCom ? 'empresa_comercial!inner' : 'empresa_comercial',
+      onboarding: isOb ? 'empresa_onboarding!inner' : 'empresa_onboarding',
+      sac: isSac ? 'empresa_sac!inner' : 'empresa_sac',
+      isOb,
+    }
+  }, [role])
 
   const buildQuery = useCallback(() => {
     return supabase
@@ -49,25 +79,30 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
         rut,
         nombre,
         nombre_fantasia,
+        estado,
+        created_at,
+        updated_at,
         fecha_inicio,
         logo,
         domicilio,
         telefono,
         correo,
-        empresa_comercial (
+        ${joins.comercial} (
           nombre_comercial,
           correo_comercial,
           telefono_comercial
         ),
-        empresa_onboarding (
+        ${joins.onboarding} (
           estado,
           encargado_name,
+          encargado_rut,
           encargado_email,
           encargado_phone,
           fecha_inicio,
-          fecha_fin
+          fecha_fin,
+          updated_at
         ),
-        empresa_sac (
+        ${joins.sac} (
           nombre_sac,
           correo_sac,
           telefono_sac,
@@ -77,90 +112,97 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
       `,
         { count: 'exact' }
       )
-  }, [])
+  }, [joins])
 
-  const filterEmpresasByProfile = useCallback(
-    (data: EmpresaCompleta[]) => {
-      if (!profile) return []
+  const applyFilters = useCallback(
+    (query: any) => {
+      // Filtro por estado (columna de empresa)
+      if (filters.estado) query = query.eq('estado', filters.estado)
 
-      const filtered = data.filter((e) => {
-        let keep = true
+      // Filtro por rango de fechas (usamos updated_at por defecto)
+      if (filters.fechaInicio) query = query.gte('updated_at', filters.fechaInicio)
+      if (filters.fechaFin) query = query.lte('updated_at', filters.fechaFin)
 
-        switch (profile.perfil.nombre) {
-          case 'COM':
-            keep = !!e.empresa_comercial
-            break
-          case 'ADMIN_OB':
-            // Admin OB ve todas las que tengan registro onboarding
-            keep = !!e.empresa_onboarding
-            break
-          case 'OB':
-            // Ejecutivo OB ve todas las empresas (para tests / solicitudes nuevas)
-            keep = !!e.empresa_onboarding
-            break
-          case 'ADMIN_SAC':
-          case 'SAC':
-            keep = !!e.empresa_sac
-            break
-          default:
-            keep = true
-            break
-        }
+      // Filtro OB adicional por vista (pendiente / proceso / pap / asignadas)
+      if (joins.isOb && options?.obView) {
+        const v = options.obView
 
-        return keep
-      })
-
-      return filtered
-    },
-    [profile]
-  )
-
-  const searchEmpresas = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const query = buildQuery().range(
-        (currentPage - 1) * pageSize,
-        currentPage * pageSize - 1
-      )
-
-      const { data, error: searchError } = await query
-      if (searchError) throw searchError
-
-      let filtered = filterEmpresasByProfile((data || []) as EmpresaCompleta[])
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.trim().toLowerCase()
-        filtered = filtered.filter(
-          (e) =>
-            (e.nombre?.toLowerCase() || '').includes(q) ||
-            (e.rut?.toString() || '').includes(q) ||
-            (e.nombre_fantasia?.toLowerCase() || '').includes(q)
-        )
+        if (v === 'configurar') query = query.eq('empresa_onboarding.estado', 'pendiente')
+        if (v === 'proceso') query = query.eq('empresa_onboarding.estado', 'en_proceso')
+        if (v === 'pap') query = query.ilike('empresa_onboarding.estado', '%PAP%')
+        if (v === 'asignadas' && profile?.rut) query = query.eq('empresa_onboarding.encargado_rut', profile.rut)
       }
 
-      setEmpresas(filtered)
-      setTotalCount(filtered.length)
-    } catch (err: any) {
-      setError('Error al buscar empresas: ' + err.message)
-    } finally {
-      setLoading(false)
-    }
-  }, [buildQuery, currentPage, pageSize, filterEmpresasByProfile, searchQuery])
+      return query
+    },
+    [filters.estado, filters.fechaInicio, filters.fechaFin, joins.isOb, options?.obView, profile?.rut]
+  )
 
-  // 🔄 función pública para que las pantallas puedan refrescar a mano
+  const inFlight = useRef(0)
+
+  const searchEmpresas = useCallback(async () => {
+    const ticket = ++inFlight.current
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const from = (currentPage - 1) * pageSize
+      const to = currentPage * pageSize - 1
+
+      let query = buildQuery()
+
+      // 🔎 Búsqueda server-side (nombre / rut / nombre_fantasia / empkey)
+      const q = searchQuery.trim()
+      if (q) {
+        const parts: string[] = [
+          `nombre.ilike.%${q}%`,
+          `rut.ilike.%${q}%`,
+          `nombre_fantasia.ilike.%${q}%`,
+        ]
+        if (/^\d+$/.test(q)) parts.push(`empkey.eq.${q}`)
+        query = query.or(parts.join(','))
+      }
+
+      query = applyFilters(query)
+
+      const { data, error: searchError, count } = await query
+        .order('updated_at', { ascending: false, nullsFirst: false })
+        .range(from, to)
+
+      // Si hubo otra búsqueda después, ignoramos esta respuesta
+      if (ticket !== inFlight.current) return
+
+      if (searchError) throw searchError
+
+      const normalized = ((data as any[]) ?? []).map((row) => ({
+        ...row,
+        empresa_comercial: firstOrSelf(row.empresa_comercial),
+        empresa_onboarding: firstOrSelf(row.empresa_onboarding),
+        empresa_sac: firstOrSelf(row.empresa_sac),
+      })) as EmpresaCompleta[]
+
+      setEmpresas(normalized)
+      setTotalCount(count ?? 0)
+    } catch (err: any) {
+      setEmpresas([])
+      setTotalCount(0)
+      setError('Error al buscar empresas: ' + (err?.message ?? String(err)))
+    } finally {
+      if (ticket === inFlight.current) setLoading(false)
+    }
+  }, [applyFilters, buildQuery, currentPage, pageSize, searchQuery])
+
   const reload = useCallback(() => {
-    // si quieres que siempre vuelva a página 1 al refrescar:
-    setCurrentPage(1)
-    searchEmpresas()
-  }, [searchEmpresas])
+    setReloadTick((t) => t + 1)
+  }, [])
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       searchEmpresas()
-    }, 300)
-    return () => clearTimeout(timeoutId)
-  }, [searchEmpresas])
+    }, 250)
+    return () => window.clearTimeout(timeoutId)
+  }, [searchEmpresas, reloadTick])
 
   const updateFilters = useCallback((newFilters: Partial<SearchFilters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }))
@@ -172,7 +214,10 @@ export const useEmpresaSearch = (): UseEmpresaSearchReturn => {
     loading,
     error,
     searchQuery,
-    setSearchQuery,
+    setSearchQuery: (q: string) => {
+      setSearchQuery(q)
+      setCurrentPage(1)
+    },
     filters,
     updateFilters,
     totalCount,

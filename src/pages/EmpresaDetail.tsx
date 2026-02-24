@@ -1,9 +1,10 @@
-import React, { useState} from 'react'
+import React, { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Edit, History, Download } from 'lucide-react'
 import { useEmpresaDetail } from '@/hooks/useEmpresaDetail'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { ErrorMessage } from '@/components/ErrorMessage'
+
 
 // Componentes de detalle
 import { DatosGeneralesSection } from '@/components/empresa-detail/DatosGeneralesSection'
@@ -15,12 +16,14 @@ import { SucursalesSection } from '@/components/empresa-detail/SucursalesSection
 import { FichaTecnicaSection } from '@/components/empresa-detail/FichaTecnicaSection'
 import { ServiciosContratadosSection } from '@/components/empresa-detail/ServiciosContratadosSection'
 import { HistorialCambiosModal } from '@/components/modals/HistorialCambiosModal'
+import { ProduccionResumenSection } from '@/components/empresa-detail/ProduccionResumenSection'
+
 
 const EmpresaDetail: React.FC = () => {
   const { empkey } = useParams<{ empkey: string }>()
   const navigate = useNavigate()
   const [showHistorial, setShowHistorial] = useState(false)
-  
+
   const {
     empresa,
     loading,
@@ -34,7 +37,7 @@ const EmpresaDetail: React.FC = () => {
 
   if (error || !empresa) {
     return (
-      <ErrorMessage 
+      <ErrorMessage
         message={error || 'Empresa no encontrada'}
         onRetry={refreshEmpresa}
       />
@@ -62,10 +65,9 @@ const EmpresaDetail: React.FC = () => {
                   <span className="text-muted">
                     Empkey: <strong>{empresa.empkey}</strong>
                   </span>
-                  <span className={`badge bg-${
-                    empresa.estado === 'COMERCIAL' ? 'warning' :
-                    empresa.estado === 'ONBOARDING' ? 'info' :
-                    empresa.estado === 'SAC' ? 'primary' : 'success'
+                  <span className={`badge bg-${empresa.estado === 'COMERCIAL' ? 'warning' :
+                      empresa.estado === 'ONBOARDING' ? 'info' :
+                        empresa.estado === 'SAC' ? 'primary' : 'success'
                     }`}>
                     {empresa.estado}
                   </span>
@@ -94,6 +96,11 @@ const EmpresaDetail: React.FC = () => {
           </div>
         </div>
       </div>
+      {typeof empresa.empkey === "number" && (
+  <div className="col-12">
+    <ProduccionResumenSection empkey={empresa.empkey} />
+  </div>
+)}
 
       {/* Content Sections */}
       <div className="row g-4">

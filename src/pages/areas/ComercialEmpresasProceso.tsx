@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, FileEdit } from 'lucide-react'
+import { AlertTriangle, FileEdit, ArrowLeft } from 'lucide-react'
 
 const DRAFT_KEY = 'nueva-empresa-draft'
 
@@ -27,6 +27,12 @@ const ComercialEmpresasProceso: React.FC = () => {
     }
   }, [])
 
+  const handleBack = () => {
+    // Si entran directo por URL y no hay historial real, evitamos volver a "nada"
+    if (window.history.length > 1) navigate(-1)
+    else navigate('/comercial/dashboard')
+  }
+
   const handleResume = () => {
     navigate('/comercial/nueva-empresa')
   }
@@ -44,50 +50,70 @@ const ComercialEmpresasProceso: React.FC = () => {
 
   return (
     <div className="container-fluid">
+      {/* Header */}
       <div className="row mb-4">
         <div className="col">
-          <h1 className="font-primary fw-bold mb-1">Empresas en Proceso</h1>
-          <p className="text-muted mb-0">
-            Aquí puedes retomar formularios de empresas que guardaste para continuar más tarde.
-          </p>
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h1 className="font-primary fw-bold mb-1">Empresas en Proceso</h1>
+              <p className="text-muted mb-0">
+                Aquí puedes retomar formularios de empresas que guardaste para continuar más tarde.
+              </p>
+            </div>
+
+            <button
+              className="btn btn-outline-secondary d-flex align-items-center gap-2"
+              onClick={handleBack}
+              type="button"
+            >
+              <ArrowLeft size={16} />
+              Volver
+            </button>
+          </div>
         </div>
       </div>
 
-      {!draft && (
-        <div className="text-center py-5">
-          <AlertTriangle size={48} className="text-muted mb-3" />
-          <p className="text-muted">
-            No tienes formularios de empresa en proceso en este navegador.
-          </p>
-        </div>
-      )}
-
-      {draft && (
-        <div className="card">
-          <div className="card-body d-flex justify-content-between align-items-center">
-            <div>
-              <h5 className="mb-1">{nombre}</h5>
-              <p className="mb-1 text-muted">RUT: {rut}</p>
-              <small className="text-muted">
+      {/* Contenido */}
+      <div className="card border-0 shadow-sm">
+        <div className="card-body">
+          {!draft ? (
+            <div className="text-center py-4">
+              <AlertTriangle size={48} className="text-warning mb-2" />
+              <p className="text-muted mb-0">
+                No tienes formularios de empresa en proceso en este navegador.
+              </p>
+            </div>
+          ) : (
+            <div className="border rounded p-4">
+              <h5 className="font-primary fw-semibold mb-2">{nombre}</h5>
+              <p className="text-muted mb-2">RUT: {rut}</p>
+              <p className="text-muted small mb-3">
                 Paso guardado: {currentStep + 1} · Última actualización:{' '}
                 {new Date(draft.savedAt).toLocaleString('es-CL')}
-              </small>
+              </p>
+
+              <div className="d-flex gap-2 flex-wrap">
+                <button
+                  className="btn btn-gradient d-flex align-items-center gap-2"
+                  onClick={handleResume}
+                  type="button"
+                >
+                  <FileEdit size={16} />
+                  Reanudar
+                </button>
+
+                <button
+                  className="btn btn-outline-danger"
+                  onClick={handleDiscard}
+                  type="button"
+                >
+                  Eliminar
+                </button>
+              </div>
             </div>
-            <div className="d-flex gap-2">
-              <button
-                className="btn btn-primary d-flex align-items-center gap-2"
-                onClick={handleResume}
-              >
-                <FileEdit size={16} />
-                Reanudar
-              </button>
-              <button className="btn btn-outline-danger btn-sm" onClick={handleDiscard}>
-                Eliminar
-              </button>
-            </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

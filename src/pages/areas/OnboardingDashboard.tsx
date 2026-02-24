@@ -14,11 +14,10 @@ import type { EmpresaCompleta } from '@/types/empresa'
 import { formatRut } from '@/lib/utils'
 import { BackButton } from '@/components/BackButton'
 
-
 function getEstadoOnb(e: EmpresaCompleta): string {
-  const fromOnb = (e.empresa_onboarding?.estado || '').toString()
+  const fromOnb = ((e as any).empresa_onboarding?.estado || '').toString()
   if (fromOnb) return fromOnb
-  return (e.estado || 'pendiente').toString()
+  return ((e as any).estado || 'pendiente').toString()
 }
 
 function getProgress(e: EmpresaCompleta): number {
@@ -26,14 +25,8 @@ function getProgress(e: EmpresaCompleta): number {
 
   if (estado.includes('COMPLETA') || estado === 'SAC') return 100
   if (estado.includes('PAP')) return 80
-  if (
-    estado.includes('ONBOARDING') ||
-    estado.includes('PROCESO') ||
-    estado.includes('CONFIG')
-  )
-    return 50
+  if (estado.includes('ONBOARDING') || estado.includes('PROCESO') || estado.includes('CONFIG')) return 50
   if (estado.includes('PENDIENTE')) return 0
-
   return 0
 }
 
@@ -58,7 +51,6 @@ const OnboardingDashboard: React.FC = () => {
     'todas' | 'pendientes' | 'proceso' | 'completadas'
   >('todas')
 
-  // Para OB/ADMIN_OB, el hook ya trae las empresas visibles según perfil
   const asignadas = empresas
 
   const stats = useMemo(() => {
@@ -71,16 +63,11 @@ const OnboardingDashboard: React.FC = () => {
 
     const sinAsignar = isAdminOb
       ? empresas.filter(
-        (e) => !e.empresa_onboarding || !e.empresa_onboarding.encargado_name
-      ).length
+          (e: any) => !e.empresa_onboarding || !e.empresa_onboarding.encargado_name
+        ).length
       : 0
 
-    return {
-      pendientes: pend,
-      enProceso: proc,
-      completadas: comp,
-      sinAsignar,
-    }
+    return { pendientes: pend, enProceso: proc, completadas: comp, sinAsignar }
   }, [asignadas, empresas, isAdminOb])
 
   const asignadasFiltradas = useMemo(() => {
@@ -96,19 +83,12 @@ const OnboardingDashboard: React.FC = () => {
   const pendientesPAP = asignadas.filter(isPendientePAP)
   const papEnviados = asignadas.filter(isEnSACoCompletada)
 
-  const scrollToMisEmpresas = (filtro: typeof filtroAsignadas) => {
-    setFiltroAsignadas(filtro)
-    const el = document.getElementById('onb-mis-empresas')
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }
-
   const renderProgressBar = (p: number) => (
     <div className="progress" style={{ height: 6 }}>
       <div
-        className={`progress-bar ${p === 100 ? 'bg-success' : p === 0 ? 'bg-secondary' : 'bg-info'
-          }`}
+        className={`progress-bar ${
+          p === 100 ? 'bg-success' : p === 0 ? 'bg-secondary' : 'bg-info'
+        }`}
         role="progressbar"
         style={{ width: `${p}%` }}
         aria-valuenow={p}
@@ -125,19 +105,15 @@ const OnboardingDashboard: React.FC = () => {
         <div className="col">
           <div className="d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center gap-3">
-              <BackButton fallback="/onboarding/dashboard" />
+              <BackButton fallback="/onboarding/mis-empresas" />
               <div>
                 <h1 className="font-primary fw-bold mb-1">Dashboard Onboarding</h1>
-                <p className="text-muted mb-0">
-                  Gestión del proceso de incorporación de empresas
-                </p>
+                <p className="text-muted mb-0">Gestión del proceso de incorporación de empresas</p>
               </div>
             </div>
-            {/* ...acciones si las tienes... */}
           </div>
         </div>
       </div>
-
 
       {/* Estadísticas */}
       <div className="row g-3 mb-4">
@@ -150,9 +126,9 @@ const OnboardingDashboard: React.FC = () => {
                 <button
                   className="btn btn-link p-0 small"
                   type="button"
-                  onClick={() => scrollToMisEmpresas('pendientes')}
+                  onClick={() => navigate('/onboarding/mis-empresas-asignadas?f=pendientes')}
                 >
-                  Requieren asignación
+                  Ver pendientes
                 </button>
               </div>
               <div className="p-3 bg-warning bg-opacity-10 rounded-circle">
@@ -211,49 +187,44 @@ const OnboardingDashboard: React.FC = () => {
       </div>
 
       <div className="row g-4">
-        {/* Columna izquierda: Mis Empresas Asignadas + PAP */}
+        {/* Izquierda */}
         <div className="col-lg-8">
-          {/* Mis Empresas Asignadas */}
-          <div id="onb-mis-empresas" className="card mb-4">
+          {/* Mis Empresas Asignadas (dashboard) */}
+          <div className="card mb-4">
             <div className="card-header d-flex justify-content-between align-items-center">
-              <h5 className="mb-0 font-primary fw-semibold">
-                Mis Empresas Asignadas
-              </h5>
+              <h5 className="mb-0 font-primary fw-semibold">Mis Empresas Asignadas</h5>
               <div className="btn-group btn-group-sm" role="group">
                 <button
                   type="button"
-                  className={`btn btn-outline-secondary ${filtroAsignadas === 'todas' ? 'active' : ''
-                    }`}
+                  className={`btn btn-outline-secondary ${filtroAsignadas === 'todas' ? 'active' : ''}`}
                   onClick={() => setFiltroAsignadas('todas')}
                 >
                   Todas
                 </button>
                 <button
                   type="button"
-                  className={`btn btn-outline-secondary ${filtroAsignadas === 'pendientes' ? 'active' : ''
-                    }`}
+                  className={`btn btn-outline-secondary ${filtroAsignadas === 'pendientes' ? 'active' : ''}`}
                   onClick={() => setFiltroAsignadas('pendientes')}
                 >
                   Pendientes
                 </button>
                 <button
                   type="button"
-                  className={`btn btn-outline-secondary ${filtroAsignadas === 'proceso' ? 'active' : ''
-                    }`}
+                  className={`btn btn-outline-secondary ${filtroAsignadas === 'proceso' ? 'active' : ''}`}
                   onClick={() => setFiltroAsignadas('proceso')}
                 >
                   En Proceso
                 </button>
                 <button
                   type="button"
-                  className={`btn btn-outline-secondary ${filtroAsignadas === 'completadas' ? 'active' : ''
-                    }`}
+                  className={`btn btn-outline-secondary ${filtroAsignadas === 'completadas' ? 'active' : ''}`}
                   onClick={() => setFiltroAsignadas('completadas')}
                 >
                   Completadas
                 </button>
               </div>
             </div>
+
             <div className="card-body">
               {loading ? (
                 <div className="text-center py-4">
@@ -263,9 +234,7 @@ const OnboardingDashboard: React.FC = () => {
               ) : asignadasFiltradas.length === 0 ? (
                 <div className="text-center py-4">
                   <Building2 size={40} className="text-muted mb-2" />
-                  <p className="text-muted mb-0">
-                    No hay empresas asignadas en este momento.
-                  </p>
+                  <p className="text-muted mb-0">No hay empresas asignadas en este momento.</p>
                 </div>
               ) : (
                 <div className="table-responsive">
@@ -287,10 +256,7 @@ const OnboardingDashboard: React.FC = () => {
                           <tr key={e.empkey}>
                             <td>{e.rut ? formatRut(e.rut) : '—'}</td>
                             <td>{e.nombre || e.nombre_fantasia || 'Sin nombre'}</td>
-                            <td>
-                              {/* TODO: ajustar cuando tengas el producto real */}
-                              {e.estado === 'COMPLETADA' ? 'ENTERFACT' : '—'}
-                            </td>
+                            <td>{(e as any).estado === 'COMPLETADA' ? 'ENTERFACT' : '—'}</td>
                             <td>
                               <div className="d-flex flex-column">
                                 <div className="d-flex justify-content-between mb-1">
@@ -304,9 +270,7 @@ const OnboardingDashboard: React.FC = () => {
                               <button
                                 className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
                                 type="button"
-                                onClick={() =>
-                                  navigate(`/configuracion-empresa/${e.empkey}`)
-                                }
+                                onClick={() => navigate(`/configuracion-empresa/${e.empkey}`)}
                               >
                                 <BarChart2 size={14} />
                                 Configurar
@@ -322,47 +286,36 @@ const OnboardingDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Empresas PAP (debajo de Mis Empresas Asignadas) */}
+          {/* PAP */}
           <div className="card">
             <div className="card-header">
-              <h5 className="mb-0 font-primary fw-semibold">
-                Empresas pendientes / enviadas a PAP
-              </h5>
+              <h5 className="mb-0 font-primary fw-semibold">Empresas pendientes / enviadas a PAP</h5>
             </div>
             <div className="card-body row">
               <div className="col-md-6 mb-3 mb-md-0">
-                <h6 className="small text-muted text-uppercase mb-2">
-                  Pendientes de PAP
-                </h6>
+                <h6 className="small text-muted text-uppercase mb-2">Pendientes de PAP</h6>
                 {pendientesPAP.length === 0 ? (
-                  <p className="text-muted small mb-0">
-                    No hay empresas pendientes de PAP.
-                  </p>
+                  <p className="text-muted small mb-0">No hay empresas pendientes de PAP.</p>
                 ) : (
                   <ul className="small mb-0">
                     {pendientesPAP.map((e) => (
                       <li key={e.empkey}>
-                        {e.nombre || 'Sin nombre'} –{' '}
-                        {e.rut ? formatRut(e.rut) : 'Sin RUT'}
+                        {e.nombre || 'Sin nombre'} – {e.rut ? formatRut(e.rut) : 'Sin RUT'}
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
+
               <div className="col-md-6">
-                <h6 className="small text-muted text-uppercase mb-2">
-                  Enviadas a SAC / Completadas
-                </h6>
+                <h6 className="small text-muted text-uppercase mb-2">Enviadas a SAC / Completadas</h6>
                 {papEnviados.length === 0 ? (
-                  <p className="text-muted small mb-0">
-                    Aún no se han enviado empresas a SAC.
-                  </p>
+                  <p className="text-muted small mb-0">Aún no se han enviado empresas a SAC.</p>
                 ) : (
                   <ul className="small mb-0">
                     {papEnviados.map((e) => (
                       <li key={e.empkey}>
-                        {e.nombre || 'Sin nombre'} –{' '}
-                        {e.rut ? formatRut(e.rut) : 'Sin RUT'}
+                        {e.nombre || 'Sin nombre'} – {e.rut ? formatRut(e.rut) : 'Sin RUT'}
                       </li>
                     ))}
                   </ul>
@@ -372,25 +325,23 @@ const OnboardingDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Columna derecha: Mis Acciones + PAP pendientes */}
+        {/* Derecha */}
         <div className="col-lg-4">
-          {/* Mis Acciones */}
           <div className="card mb-4">
             <div className="card-header">
               <h5 className="mb-0 font-primary fw-semibold">Mis Acciones</h5>
             </div>
+
             <div className="card-body d-flex flex-column gap-3">
               <button
                 className="btn btn-primary d-flex align-items-center justify-content-between"
                 type="button"
-                onClick={() => scrollToMisEmpresas('pendientes')}
+                onClick={() => navigate('/onboarding/solicitudes-nuevas')}
               >
                 <span>
                   Configurar Empresa
                   <br />
-                  <small className="text-light text-opacity-75">
-                    Ver empresas nuevas para configurar
-                  </small>
+                  <small className="text-light text-opacity-75">Ver empresas nuevas para configurar</small>
                 </span>
                 <ArrowRight size={18} />
               </button>
@@ -398,38 +349,31 @@ const OnboardingDashboard: React.FC = () => {
               <button
                 className="btn btn-outline-success d-flex align-items-center justify-content-between"
                 type="button"
-                onClick={() => scrollToMisEmpresas('proceso')}
+                onClick={() => navigate('/onboarding/mis-empresas-asignadas?f=proceso')}
               >
                 <span>
                   Completar Configuración
                   <br />
-                  <small className="text-muted">
-                    Ver empresas con avance en proceso
-                  </small>
+                  <small className="text-muted">Ver empresas con avance en proceso</small>
                 </span>
                 <ArrowRight size={18} />
               </button>
             </div>
           </div>
 
-          {/* Empresas pendientes a PAP para enviar a SAC */}
           <div className="card">
             <div className="card-header">
-              <h5 className="mb-0 font-primary fw-semibold">
-                Empresas pendientes a PAP
-              </h5>
+              <h5 className="mb-0 font-primary fw-semibold">Empresas pendientes a PAP</h5>
             </div>
+
             <div className="card-body small">
               {pendientesPAP.length === 0 ? (
-                <p className="text-muted mb-0">
-                  No tienes empresas pendientes de PAP en este momento.
-                </p>
+                <p className="text-muted mb-0">No tienes empresas pendientes de PAP en este momento.</p>
               ) : (
                 <ul className="mb-3">
                   {pendientesPAP.map((e) => (
                     <li key={e.empkey}>
-                      {e.nombre || 'Sin nombre'} –{' '}
-                      {e.rut ? formatRut(e.rut) : 'Sin RUT'}
+                      {e.nombre || 'Sin nombre'} – {e.rut ? formatRut(e.rut) : 'Sin RUT'}
                     </li>
                   ))}
                 </ul>
@@ -438,7 +382,7 @@ const OnboardingDashboard: React.FC = () => {
               <button
                 type="button"
                 className="btn btn-sm btn-outline-primary d-flex align-items-center gap-2"
-                onClick={() => navigate('/onboarding/paso-produccion')}
+                onClick={() => navigate('/onboarding/paso-produccion-listado')}
               >
                 Ir a Paso a Producción
                 <ArrowRight size={14} />

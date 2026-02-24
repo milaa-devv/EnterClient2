@@ -1,4 +1,3 @@
-// src/App.tsx
 import '@/styles/bootstrap-custom.scss'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
@@ -8,22 +7,36 @@ import Login from './pages/LoginPage'
 import EmpresaDetail from './pages/EmpresaDetail'
 import NuevaEmpresa from './pages/areas/NuevaEmpresa'
 import ConfiguracionEmpresaForm from './pages/areas/ConfiguracionEmpresaForm'
-import PapForm from './pages/areas/PapForm'
 import OnboardingSolicitudesNuevas from './pages/areas/OnboardingSolicitudesNuevas'
 import PasoProduccion from '@/pages/onboarding/PasoProduccion'
+import PasoProduccionListado from '@/pages/onboarding/PasoProduccionListado'
+import OnboardingMisEmpresasAsignadas from '@/pages/onboarding/OnboardingMisEmpresasAsignadas'
 
 // Dashboards por área
 import ComercialDashboard from '@/pages/areas/ComercialDashboard'
 import OnboardingDashboard from '@/pages/areas/OnboardingDashboard'
 import SacDashboard from '@/pages/areas/SacDashboard'
 
+// Comercial
+import ComercialEmpresasProceso from '@/pages/areas/ComercialEmpresasProceso'
+import ComercialHistorial from '@/pages/areas/ComercialHistorial'
+import ComercialNotificaciones from '@/pages/areas/ComercialNotificaciones'
+
 // Panel asignar ejecutivos OB
 import OnboardingAsignarEjecutivos from '@/pages/areas/OnboardingAsignarEjecutivos'
 
-// NUEVO: vistas Admin Onboarding
+// Admin Onboarding
 import OnboardingAdminDashboard from '@/pages/areas/OnboardingAdminDashboard'
 import OnboardingEmpresasProceso from '@/pages/areas/OnboardingEmpresasProceso'
 import OnboardingNotificaciones from '@/pages/areas/OnboardingNotificaciones'
+
+//Ejecutivo SAC
+import SacPapListado from '@/pages/areas/SacPapListado'
+import PapForm from './pages/areas/PapForm'
+import SacMisEmpresas from './pages/areas/SacMisEmpresas'
+import SacEmpresaDetalle from './pages/areas/SacEmpresaDetalle'
+import SacPendientesListado from './pages/areas/SacPendientesListado'
+
 
 const App = () => {
   const { profile } = useAuth()
@@ -35,84 +48,68 @@ const App = () => {
     role === 'COM'
       ? '/comercial/dashboard'
       : role === 'OB'
-      ? '/onboarding/mis-empresas'
-      : role === 'ADMIN_OB'
-      ? '/onboarding/admin-dashboard'
-      : role === 'SAC'
-      ? '/sac/mis-empresas'
-      : role === 'ADMIN_SAC'
-      ? '/sac/empresas-sac'
-      : '/dashboard'
+        ? '/onboarding/mis-empresas'
+        : role === 'ADMIN_OB'
+          ? '/onboarding/admin-dashboard'
+          : role === 'SAC'
+            ? '/sac/mis-empresas'
+            : role === 'ADMIN_SAC'
+              ? '/sac/empresas-sac'
+              : '/dashboard'
 
   return (
     <Routes>
+      {/* ✅ Todo lo logueado con Layout (Navbar + Sidebar) */}
       <Route element={<MainLayout />}>
-        {/* Redirección inicial según rol */}
         <Route path="/" element={<Navigate to={defaultDashboardPath} />} />
 
-        {/* Dashboards generales */}
+        {/* Generales */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/empresas/activas" element={<Dashboard />} />
+        <Route path="/empresa/:empkey" element={<EmpresaDetail />} />
 
-        {/* Dashboards por área */}
+        {/* Comercial */}
         <Route path="/comercial/dashboard" element={<ComercialDashboard />} />
+        <Route path="/comercial/nueva-empresa" element={<NuevaEmpresa />} />
+        <Route path="/comercial/empresas-proceso" element={<ComercialEmpresasProceso />} />
+        <Route path="/comercial/historial" element={<ComercialHistorial />} />
+        <Route path="/comercial/notificaciones" element={<ComercialNotificaciones />} />
+
+        {/* Onboarding */}
         <Route path="/onboarding/mis-empresas" element={<OnboardingDashboard />} />
-        <Route path="/sac/mis-empresas" element={<SacDashboard />} />
-
-        {/* Dashboard Admin OB */}
-        <Route
-          path="/onboarding/admin-dashboard"
-          element={<OnboardingAdminDashboard />}
-        />
-
-        {/* Rutas Onboarding Ejecutivo / Admin */}
-        <Route
-          path="/onboarding/solicitudes-nuevas"
-          element={<OnboardingSolicitudesNuevas />}
-        />
-
-        {/* Alias Admin OB: Bandeja de Solicitudes */}
-        <Route
-          path="/onboarding/solicitudes-pendientes"
-          element={<OnboardingSolicitudesNuevas />}
-        />
-
-        {/* Empresas en Proceso (Admin OB) */}
-        <Route
-          path="/onboarding/empresas-proceso"
-          element={<OnboardingEmpresasProceso />}
-        />
-
-        {/* Gestión de Ejecutivos OB */}
-        <Route
-          path="/onboarding/asignar-ejecutivos"
-          element={<OnboardingAsignarEjecutivos />}
-        />
-
-        {/* Notificaciones OB */}
-        <Route
-          path="/onboarding/notificaciones"
-          element={<OnboardingNotificaciones />}
-        />
-
-        {/* Paso a Producción (Ejecutivo OB) */}
+        <Route path="/onboarding/admin-dashboard" element={<OnboardingAdminDashboard />} />
+        <Route path="/onboarding/solicitudes-nuevas" element={<OnboardingSolicitudesNuevas />} />
+        <Route path="/onboarding/solicitudes-pendientes" element={<OnboardingSolicitudesNuevas />} />
+        <Route path="/onboarding/empresas-proceso" element={<OnboardingEmpresasProceso />} />
+        <Route path="/onboarding/asignar-ejecutivos" element={<OnboardingAsignarEjecutivos />} />
+        <Route path="/onboarding/notificaciones" element={<OnboardingNotificaciones />} />
         <Route path="/onboarding/paso-produccion" element={<PasoProduccion />} />
 
-        {/* Otras rutas */}
-        <Route path="/empresa/:empkey" element={<EmpresaDetail />} />
-        <Route path="/crear-empresa" element={<NuevaEmpresa />} />
+        {/* SAC */}
+        <Route path="/sac/mis-empresas" element={<SacDashboard />} />
+        <Route path="/sac/pap" element={<SacPapListado />} />
+        <Route path="/sac/pap/:empkey" element={<PapForm />} />
+        <Route path="/sac/empresas-asignadas" element={<SacMisEmpresas />} />
+        <Route path="/sac/empresa/:empkey" element={<SacEmpresaDetalle />} />
+        <Route path="/sac/pendientes" element={<SacPendientesListado />} />
+
+        {/* Otros */}
         <Route
           path="/configuracion-empresa/:empkey?"
-          element={<ConfiguracionEmpresaForm onSave={() => {}} />}
+          element={<ConfiguracionEmpresaForm onSave={() => { }} />}
         />
         <Route path="/crear-sac" element={<PapForm />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to={defaultDashboardPath} />} />
       </Route>
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to={defaultDashboardPath} />} />
+      <Route path="/onboarding/mis-empresas-asignadas" element={<OnboardingMisEmpresasAsignadas />} />
+      <Route path="/onboarding/paso-produccion-listado" element={<PasoProduccionListado />} />
+
+
     </Routes>
   )
 }
 
 export default App
-
