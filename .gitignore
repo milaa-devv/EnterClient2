@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 
 .vercel
+# Env files (no se commitean)
+.env
+.env.* 
+!.env.example
