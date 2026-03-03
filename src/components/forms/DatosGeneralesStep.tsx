@@ -36,7 +36,7 @@ export const DatosGeneralesStep: React.FC = () => {
   const categoriasTributarias = [
     { id: 1, nombre: 'Primera Categoría' },
     { id: 2, nombre: 'Segunda Categoría' },
-    { id: 3, nombre: 'Sin Categoría (Exenta)' }
+    { id: 3, nombre: 'G' }
   ]
 
   const formatRut = (value: string) => {

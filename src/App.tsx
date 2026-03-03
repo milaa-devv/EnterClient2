@@ -36,8 +36,12 @@ import PapForm from './pages/areas/PapForm'
 import SacMisEmpresas from './pages/areas/SacMisEmpresas'
 import SacEmpresaDetalle from './pages/areas/SacEmpresaDetalle'
 import SacPendientesListado from './pages/areas/SacPendientesListado'
+import SacSolicitudesPendientes from './pages/areas/SacSolicitudesPendientes'
 
-
+//SAC ADMIN
+import SacHistorialEmpresas from '@/pages/areas/SacHistorialEmpresas'
+import SacEmpresaSacListado from '@/pages/areas/SacEmpresaSacListado'
+import SacNotificaciones from '@/pages/areas/SacNotificaciones'
 const App = () => {
   const { profile } = useAuth()
 
@@ -54,7 +58,7 @@ const App = () => {
           : role === 'SAC'
             ? '/sac/mis-empresas'
             : role === 'ADMIN_SAC'
-              ? '/sac/empresas-sac'
+              ? '/sac/mis-empresas'
               : '/dashboard'
 
   return (
@@ -92,6 +96,12 @@ const App = () => {
         <Route path="/sac/empresas-asignadas" element={<SacMisEmpresas />} />
         <Route path="/sac/empresa/:empkey" element={<SacEmpresaDetalle />} />
         <Route path="/sac/pendientes" element={<SacPendientesListado />} />
+        <Route path="/sac/solicitudes-pendientes" element={<SacSolicitudesPendientes />} />
+
+        {/* ADMIN SAC */}
+        <Route path="/sac/historial" element={<SacHistorialEmpresas />} />
+        <Route path="/sac/empresa-sac" element={<SacEmpresaSacListado />} />
+        <Route path="/sac/notificaciones" element={<SacNotificaciones />} />
 
         {/* Otros */}
         <Route
@@ -106,8 +116,6 @@ const App = () => {
 
       <Route path="/onboarding/mis-empresas-asignadas" element={<OnboardingMisEmpresasAsignadas />} />
       <Route path="/onboarding/paso-produccion-listado" element={<PasoProduccionListado />} />
-
-
     </Routes>
   )
 }

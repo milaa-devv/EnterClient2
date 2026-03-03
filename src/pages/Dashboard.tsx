@@ -4,8 +4,6 @@ import { useAuth, usePermissions } from '@/hooks/useAuth'
 import { EmpresaGrid } from '@/components/EmpresaGrid'
 import { useEmpresaSearch } from '@/hooks/useEmpresaSearch'
 import { useNavigate } from 'react-router-dom'
-
-// ✅ AJUSTA ESTE IMPORT SI TU CLIENTE SUPABASE ESTÁ EN OTRA RUTA
 import { supabase } from '@/lib/supabase'
 
 type AdminSacEmpresaRow = {
@@ -73,9 +71,7 @@ const DashboardContent: React.FC = () => {
 
       let query = supabase
         .from(ADMIN_SAC_VIEW_NAME)
-        .select('empkey,rut,nombre,logo,fecha_paso_produccion,ejecutivo_ob,ejecutivo_sac,estado_final', {
-          count: 'exact',
-        })
+        .select('*', { count: 'exact' })
 
       // Búsqueda por nombre / rut / (si es número) empkey
       if (q) {
@@ -154,7 +150,7 @@ const DashboardContent: React.FC = () => {
           <>
             <h2 className="mb-1">Empresas activas (Admin SAC)</h2>
             <p className="text-muted mb-0">
-              Empresas completadas (estado final: PRODUCCIÓN / ACTIVA).
+              Aquí encontraras todas las empresas activas en producción.
             </p>
           </>
         )
@@ -162,7 +158,6 @@ const DashboardContent: React.FC = () => {
         return <h2>Empresas activas</h2>
     }
   }
-
   // Normalizamos data para EmpresaGrid
   const empresasToRender = useMemo(() => {
     if (!isAdminSac) return empresas
@@ -171,11 +166,6 @@ const DashboardContent: React.FC = () => {
       rut: r.rut ?? undefined,
       nombre: r.nombre ?? undefined,
       logo: r.logo ?? undefined,
-      // 👇 puedes agregar campos extra si tu UI los usa
-      // estado_final: r.estado_final ?? undefined,
-      // ejecutivo_ob: r.ejecutivo_ob ?? undefined,
-      // ejecutivo_sac: r.ejecutivo_sac ?? undefined,
-      // fecha_paso_produccion: r.fecha_paso_produccion ?? undefined,
     })) as any
   }, [isAdminSac, empresas, adminSacRows])
 

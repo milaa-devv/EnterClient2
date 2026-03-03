@@ -1522,6 +1522,131 @@ export type Database = {
         }
         Relationships: []
       }
+      sac_evento: {
+        Row: {
+          actor_rut: string | null
+          asignado_a_rut: string | null
+          created_at: string
+          detalle: Json
+          empkey: number
+          id: number
+          tipo: string
+        }
+        Insert: {
+          actor_rut?: string | null
+          asignado_a_rut?: string | null
+          created_at?: string
+          detalle?: Json
+          empkey: number
+          id?: never
+          tipo: string
+        }
+        Update: {
+          actor_rut?: string | null
+          asignado_a_rut?: string | null
+          created_at?: string
+          detalle?: Json
+          empkey?: number
+          id?: never
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sac_evento_actor_rut_fkey"
+            columns: ["actor_rut"]
+            isOneToOne: false
+            referencedRelation: "usuario"
+            referencedColumns: ["rut"]
+          },
+          {
+            foreignKeyName: "sac_evento_asignado_a_rut_fkey"
+            columns: ["asignado_a_rut"]
+            isOneToOne: false
+            referencedRelation: "usuario"
+            referencedColumns: ["rut"]
+          },
+          {
+            foreignKeyName: "sac_evento_empkey_fkey"
+            columns: ["empkey"]
+            isOneToOne: false
+            referencedRelation: "empresa"
+            referencedColumns: ["empkey"]
+          },
+          {
+            foreignKeyName: "sac_evento_empkey_fkey"
+            columns: ["empkey"]
+            isOneToOne: false
+            referencedRelation: "vw_empresa_produccion_resumen"
+            referencedColumns: ["empkey"]
+          },
+          {
+            foreignKeyName: "sac_evento_empkey_fkey"
+            columns: ["empkey"]
+            isOneToOne: false
+            referencedRelation: "vw_empresas_activas_admin_sac"
+            referencedColumns: ["empkey"]
+          },
+        ]
+      }
+      sac_notificacion: {
+        Row: {
+          created_at: string
+          destinatario_rut: string
+          empkey: number | null
+          id: number
+          leida: boolean
+          mensaje: string | null
+          titulo: string | null
+        }
+        Insert: {
+          created_at?: string
+          destinatario_rut: string
+          empkey?: number | null
+          id?: never
+          leida?: boolean
+          mensaje?: string | null
+          titulo?: string | null
+        }
+        Update: {
+          created_at?: string
+          destinatario_rut?: string
+          empkey?: number | null
+          id?: never
+          leida?: boolean
+          mensaje?: string | null
+          titulo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sac_notificacion_destinatario_rut_fkey"
+            columns: ["destinatario_rut"]
+            isOneToOne: false
+            referencedRelation: "usuario"
+            referencedColumns: ["rut"]
+          },
+          {
+            foreignKeyName: "sac_notificacion_empkey_fkey"
+            columns: ["empkey"]
+            isOneToOne: false
+            referencedRelation: "empresa"
+            referencedColumns: ["empkey"]
+          },
+          {
+            foreignKeyName: "sac_notificacion_empkey_fkey"
+            columns: ["empkey"]
+            isOneToOne: false
+            referencedRelation: "vw_empresa_produccion_resumen"
+            referencedColumns: ["empkey"]
+          },
+          {
+            foreignKeyName: "sac_notificacion_empkey_fkey"
+            columns: ["empkey"]
+            isOneToOne: false
+            referencedRelation: "vw_empresas_activas_admin_sac"
+            referencedColumns: ["empkey"]
+          },
+        ]
+      }
       servicio: {
         Row: {
           id: number

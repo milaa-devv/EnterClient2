@@ -32,8 +32,7 @@ interface SidebarItem {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const { isComercial, isOnboardingAdmin, isOnboardingExecutive, isSacAdmin, isSacExecutive } =
-    usePermissions()
+  const { isComercial, isOnboardingAdmin, isOnboardingExecutive } = usePermissions()
 
   const role = profile?.perfil?.nombre
 
@@ -69,12 +68,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           }
         }
 
-        // Admin SAC: solicitudes pendientes (opcional)
+        // Admin SAC: solicitudes pendientes sin asignar
         if (role === 'ADMIN_SAC') {
           const { count } = await supabase
             .from('pap_solicitud')
             .select('id', { count: 'exact', head: true })
             .eq('estado', 'pendiente')
+            .is('asignado_a_rut', null)
 
           if (mounted) setBadgeAdminSolicitudes(count ?? 0)
         }
@@ -93,17 +93,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     }
   }, [profile?.rut, role])
 
-  // Dashboard real de SAC
-const dashboardPath =
-  role === 'COM'
-    ? '/comercial/dashboard'
-    : role === 'OB'
-    ? '/onboarding/mis-empresas'
-    : role === 'ADMIN_OB'
-    ? '/onboarding/admin-dashboard'
-    : role === 'SAC' || role === 'ADMIN_SAC'
-    ? '/sac/mis-empresas'
-    : '/dashboard'
+  const dashboardPath =
+    role === 'COM'
+      ? '/comercial/dashboard'
+      : role === 'OB'
+        ? '/onboarding/mis-empresas'
+        : role === 'ADMIN_OB'
+          ? '/onboarding/admin-dashboard'
+          : role === 'SAC' || role === 'ADMIN_SAC'
+            ? '/sac/mis-empresas'
+            : '/dashboard'
 
   const alwaysItems: SidebarItem[] = [
     {
@@ -115,35 +114,93 @@ const dashboardPath =
   ]
 
   const getSidebarItems = (): SidebarItem[] => {
+    // ✅ Comercial
     if (isComercial()) {
       return [
         ...alwaysItems,
-        { id: 'nueva-empresa', label: 'Nueva Empresa', icon: <Plus className="nav-icon" />, path: '/comercial/nueva-empresa' },
-        { id: 'empresas-proceso', label: 'Empresas en Proceso', icon: <Clock className="nav-icon" />, path: '/comercial/empresas-proceso', badge: 5 },
-        { id: 'historial', label: 'Historial de Empresas', icon: <History className="nav-icon" />, path: '/comercial/historial' },
-        { id: 'notificaciones', label: 'Notificaciones', icon: <Bell className="nav-icon" />, path: '/comercial/notificaciones', badge: 3 },
+        {
+          id: 'nueva-empresa',
+          label: 'Nueva Empresa',
+          icon: <Plus className="nav-icon" />,
+          path: '/comercial/nueva-empresa',
+        },
+        {
+          id: 'empresas-proceso',
+          label: 'Empresas en Proceso',
+          icon: <Clock className="nav-icon" />,
+          path: '/comercial/empresas-proceso',
+          badge: 5,
+        },
+        {
+          id: 'historial',
+          label: 'Historial de Empresas',
+          icon: <History className="nav-icon" />,
+          path: '/comercial/historial',
+        },
+        {
+          id: 'notificaciones',
+          label: 'Notificaciones',
+          icon: <Bell className="nav-icon" />,
+          path: '/comercial/notificaciones',
+          badge: 3,
+        },
       ]
     }
 
+    // ✅ Admin Onboarding
     if (isOnboardingAdmin()) {
       return [
         ...alwaysItems,
-        { id: 'solicitudes-pendientes', label: '📥 Bandeja de Solicitudes', icon: <AlertTriangle className="nav-icon" />, path: '/onboarding/solicitudes-pendientes' },
-        { id: 'empresas-proceso', label: 'Empresas en Proceso', icon: <Clock className="nav-icon" />, path: '/onboarding/empresas-proceso' },
-        { id: 'notificaciones', label: 'Notificaciones', icon: <Bell className="nav-icon" />, path: '/onboarding/notificaciones', badge: 2 },
+        {
+          id: 'solicitudes-pendientes',
+          label: '📥 Bandeja de Solicitudes',
+          icon: <AlertTriangle className="nav-icon" />,
+          path: '/onboarding/solicitudes-pendientes',
+        },
+        {
+          id: 'empresas-proceso',
+          label: 'Empresas en Proceso',
+          icon: <Clock className="nav-icon" />,
+          path: '/onboarding/empresas-proceso',
+        },
+        {
+          id: 'notificaciones',
+          label: 'Notificaciones',
+          icon: <Bell className="nav-icon" />,
+          path: '/onboarding/notificaciones',
+          badge: 2,
+        },
       ]
     }
 
+    // ✅ Ejecutivo Onboarding
     if (isOnboardingExecutive()) {
       return [
         ...alwaysItems,
-        { id: 'mis-empresas', label: 'Mis Empresas', icon: <Building2 className="nav-icon" />, path: '/onboarding/mis-empresas' },
-        { id: 'solicitudes-nuevas', label: 'Solicitudes Nuevas', icon: <Plus className="nav-icon" />, path: '/onboarding/solicitudes-nuevas', badge: 4 },
-        { id: 'paso-produccion', label: 'Paso a Producción', icon: <Settings className="nav-icon" />, path: '/onboarding/paso-produccion-listado' },
+        {
+          id: 'mis-empresas',
+          label: 'Mis Empresas',
+          icon: <Building2 className="nav-icon" />,
+          path: '/onboarding/mis-empresas',
+        },
+        {
+          id: 'solicitudes-nuevas',
+          label: 'Solicitudes Nuevas',
+          icon: <Plus className="nav-icon" />,
+          path: '/onboarding/solicitudes-nuevas',
+          badge: 4,
+        },
+        {
+          id: 'paso-produccion',
+          label: 'Paso a Producción',
+          icon: <Settings className="nav-icon" />,
+          path: '/onboarding/paso-produccion-listado',
+        },
       ]
     }
 
-    if (isSacAdmin()) {
+    // ✅ Admin SAC (IMPORTANTE: acá NUNCA va "Ejecutar PAP")
+    if (role === 'ADMIN_SAC') {
       return [
         ...alwaysItems,
         {
@@ -154,10 +211,10 @@ const dashboardPath =
           badge: badgeAdminSolicitudes || undefined,
         },
         {
-          id: 'ejecutar-pap',
-          label: 'Ejecutar PAP',
-          icon: <CheckCircle className="nav-icon" />,
-          path: '/sac/pap',
+          id: 'empresa-sac',
+          label: 'Empresa SAC',
+          icon: <Building2 className="nav-icon" />,
+          path: '/sac/empresa-sac',
         },
         {
           id: 'historial-sac',
@@ -168,7 +225,8 @@ const dashboardPath =
       ]
     }
 
-    if (isSacExecutive()) {
+    // ✅ Ejecutivo SAC
+    if (role === 'SAC') {
       return [
         ...alwaysItems,
         {
@@ -191,6 +249,12 @@ const dashboardPath =
           icon: <CheckCircle className="nav-icon" />,
           path: '/sac/pap',
         },
+        {
+          id: 'notificaciones-sac',
+          label: 'Notificaciones',
+          icon: <Bell className="nav-icon" />,
+          path: '/sac/notificaciones',
+        },
       ]
     }
 
@@ -198,13 +262,17 @@ const dashboardPath =
   }
 
   const getQuickActions = (): SidebarItem[] => {
-    if (isComercial()) return []
+    // Solo Admin OB tiene “Gestión de Ejecutivos”
     if (isOnboardingAdmin()) {
-      return [{ id: 'asignar-ejecutivo', label: '👥 Gestión de Ejecutivos', icon: <Users className="nav-icon" />, path: '/onboarding/asignar-ejecutivos' }]
+      return [
+        {
+          id: 'asignar-ejecutivo',
+          label: '👥 Gestión de Ejecutivos',
+          icon: <Users className="nav-icon" />,
+          path: '/onboarding/asignar-ejecutivos',
+        },
+      ]
     }
-    if (isOnboardingExecutive()) return []
-
-    // Evitamos rutas inventadas; si quieres, después armamos las pantallas admin reales.
     return []
   }
 
@@ -273,7 +341,9 @@ const dashboardPath =
                 >
                   {item.icon}
                   <span>{item.label}</span>
-                  {item.badge && <span className="badge bg-danger rounded-pill ms-auto">{item.badge}</span>}
+                  {item.badge ? (
+                    <span className="badge bg-danger rounded-pill ms-auto">{item.badge}</span>
+                  ) : null}
                 </NavLink>
               </li>
             ))}
@@ -284,7 +354,9 @@ const dashboardPath =
                   <hr className="my-3 mx-3" />
                 </li>
                 <li className="px-3 mb-2">
-                  <small className="text-muted font-primary fw-semibold text-uppercase">Acciones Rápidas</small>
+                  <small className="text-muted font-primary fw-semibold text-uppercase">
+                    Acciones Rápidas
+                  </small>
                 </li>
                 {quickActions.map((action) => (
                   <li key={action.id} className="nav-item">
@@ -304,6 +376,7 @@ const dashboardPath =
             <li>
               <hr className="my-3 mx-3" />
             </li>
+
             <li className="nav-item">
               <button type="button" className="nav-link w-100 text-start" onClick={handleLogout}>
                 <LogOut className="nav-icon" />

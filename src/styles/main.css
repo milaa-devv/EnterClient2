@@ -481,3 +481,15 @@
   border-color: rgba(25, 135, 84, 0.2);
   color: #0f5132;
 }
+/* ==========================================
+   SIMPLE ANIMATIONS
+   ========================================== */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
