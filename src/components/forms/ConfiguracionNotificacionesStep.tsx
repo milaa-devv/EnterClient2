@@ -14,40 +14,40 @@ export const ConfiguracionNotificacionesStep: React.FC = () => {
 
   const tiposNotificacion = [
     { 
-      id: 'documento_emitido', 
-      nombre: 'Documento Emitido', 
-      descripcion: 'Se envía cuando se emite un documento tributario',
-      predeterminada: 'Notificación automática al emitir DTE'
+      id: 'administrar_folios', 
+      nombre: 'Administración de Folios', 
+      descripcion: 'Notificación de Administración de folios',
+      predeterminada: 'Notificación automática para folios disponibles y proximos a vencer'
     },
     { 
-      id: 'documento_recibido', 
-      nombre: 'Documento Recibido', 
-      descripcion: 'Se envía cuando se recibe un documento de proveedor',
-      predeterminada: 'Notificación de recepción de DTE de proveedores'
+      id: 'rechazos_comerciales', 
+      nombre: 'Rechazos Comerciales', 
+      descripcion: 'Documentos emitidos reclamados por el receptor',
+      predeterminada: 'Notificación de documentos reclamados por el receptor'
     },
     { 
-      id: 'error_sistema', 
-      nombre: 'Error del Sistema', 
-      descripcion: 'Alertas sobre errores o fallas del sistema',
-      predeterminada: 'Alerta crítica: Error en el sistema de facturación'
+      id: 'dte_proveedores', 
+      nombre: 'Dte proveedores proximos a vencer', 
+      descripcion: 'Alerta de DTE proximos a vencer',
+      predeterminada: 'Notificación de DTE proveedores proximos a vencer'
     },
     { 
       id: 'vencimiento_certificado', 
       nombre: 'Vencimiento Certificado', 
       descripción: 'Aviso antes del vencimiento del certificado digital',
-      predeterminada: 'Su certificado digital vence en 30 días'
+      predeterminada: 'Su certificado digital esta por vencer'
     },
     { 
-      id: 'respaldo_completado', 
-      nombre: 'Respaldo Completado', 
-      descripcion: 'Confirmación de respaldos automáticos',
-      predeterminada: 'Respaldo de documentos completado exitosamente'
+      id: 'admin_cert', 
+      nombre: 'Administracion de Certificado digital en Gestor de firma', 
+      descripcion: 'Administración certificado en gestor de firma',
+      predeterminada: 'Notificación Gestor de Firma'
     },
     { 
-      id: 'actualizacion_sistema', 
-      nombre: 'Actualización Sistema', 
-      descripcion: 'Avisos sobre actualizaciones del sistema',
-      predeterminada: 'Nueva versión del sistema disponible'
+      id: 'errores_tecnicos', 
+      nombre: 'Errores Tecnicos', 
+      descripcion: 'Avisos de errores tecnicos en integración y envio de DTE al SII',
+      predeterminada: 'Notificación de errores en integración y envio de DTE al SII'
     }
   ]
 

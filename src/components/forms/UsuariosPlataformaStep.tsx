@@ -14,9 +14,9 @@ export const UsuariosPlataformaStep: React.FC = () => {
 
   const rolesDisponibles = [
     { id: 'admin', nombre: 'Administrador', descripcion: 'Acceso completo al sistema' },
-    { id: 'user', nombre: 'Usuario', descripcion: 'Acceso básico para emisión de documentos' },
-    { id: 'viewer', nombre: 'Consulta', descripcion: 'Solo puede ver documentos y reportes' },
-    { id: 'accountant', nombre: 'Contador', descripcion: 'Acceso a reportes contables y tributarios' }
+    { id: 'facturador', nombre: 'Facturador', descripcion: 'Acceso a la emisión de facturas' },
+    { id: 'recepcion', nombre: 'Recepción', descripcion: 'Solo recibe documentos de proveedores' },
+    { id: 'guias', nombre: 'Emisor de Guías', descripcion: 'Acceso solo a la emisión de Guias de despacho' }
   ]
 
   const formatRut = (value: string) => {
@@ -86,9 +86,9 @@ export const UsuariosPlataformaStep: React.FC = () => {
   const getRolColor = (rolId: string) => {
     switch (rolId) {
       case 'admin': return 'danger'
-      case 'user': return 'primary'
-      case 'viewer': return 'info'
-      case 'accountant': return 'warning'
+      case 'facturador': return 'primary'
+      case 'recepcion': return 'info'
+      case 'guias': return 'warning'
       default: return 'secondary'
     }
   }
@@ -344,10 +344,10 @@ export const UsuariosPlataformaStep: React.FC = () => {
       <div className="alert alert-info mt-4">
         <h6 className="alert-heading">Información sobre Usuarios</h6>
         <ul className="mb-0 small">
-          <li><strong>Administrador:</strong> Acceso completo al sistema, puede configurar otros usuarios</li>
-          <li><strong>Usuario:</strong> Puede emitir documentos y gestionar datos básicos</li>
-          <li><strong>Consulta:</strong> Solo visualización de documentos y reportes</li>
-          <li><strong>Contador:</strong> Acceso especializado para reportes contables y tributarios</li>
+          <li><strong>Administrador:</strong> Acceso completo al sistema</li>
+          <li><strong>Facturador:</strong> Puede emitir documentos y gestionar datos básicos</li>
+          <li><strong>Recepción:</strong> Solo recepciona DTE de proveedores</li>
+          <li><strong>Emisor de Guias</strong> Solo emite guías de despacho</li>
           <li>Los usuarios recibirán credenciales de acceso por correo electrónico</li>
         </ul>
       </div>
