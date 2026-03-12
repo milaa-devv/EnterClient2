@@ -1,6 +1,7 @@
 import React from 'react'
 import { useFormContext } from '@/contexts/FormContext'
 import { formatRut } from '@/lib/utils'
+import { formatActividadCod } from '@/data/siiActividades'
 
 export const ResumenStep: React.FC = () => {
   const { state, setCurrentStep } = useFormContext()
@@ -113,7 +114,7 @@ export const ResumenStep: React.FC = () => {
                 <ul className="mb-0">
                   {act.map((a: any, idx: number) => (
                     <li key={idx}>
-                      <strong>{a.cod}</strong> — {a.nombre}{' '}
+                      <strong>{typeof a.cod === 'number' ? formatActividadCod(a.cod) : a.cod}</strong> — {a.nombre}{' '}
                       {a.posee_iva ? '(Afecta IVA)' : '(No afecta IVA)'}
                     </li>
                   ))}

@@ -354,7 +354,7 @@ export const ConfiguracionNotificacionesStep: React.FC = () => {
         <h6 className="alert-heading">Información sobre Notificaciones</h6>
         <ul className="mb-0 small">
           <li>Las notificaciones se envían automáticamente según los eventos configurados</li>
-          <li>Puede configurar múltiples correos para el mismo tipo de notificación</li>
+          <li>Se pueden configurar hasta 3 correos</li>
           <li>Las notificaciones inactivas no se enviarán pero se mantendrán configuradas</li>
           <li>Recomendamos configurar al menos notificaciones de errores y vencimientos</li>
         </ul>
