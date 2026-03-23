@@ -1273,6 +1273,7 @@ export type Database = {
           estado: string
           id: number
           inicio_pap_at: string | null
+          pre_ingreso_at: string | null
           updated_at: string
         }
         Insert: {
@@ -1287,6 +1288,7 @@ export type Database = {
           estado?: string
           id?: never
           inicio_pap_at?: string | null
+          pre_ingreso_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -1301,6 +1303,7 @@ export type Database = {
           estado?: string
           id?: never
           inicio_pap_at?: string | null
+          pre_ingreso_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1450,6 +1453,39 @@ export type Database = {
         Update: {
           id?: number
           nombre?: string
+        }
+        Relationships: []
+      }
+      pre_ingresos: {
+        Row: {
+          contacto: string | null
+          created_at: string | null
+          datos_json: Json | null
+          estado: string | null
+          id: number
+          nombre_empresa: string | null
+          origen: string | null
+          rut: string | null
+        }
+        Insert: {
+          contacto?: string | null
+          created_at?: string | null
+          datos_json?: Json | null
+          estado?: string | null
+          id?: number
+          nombre_empresa?: string | null
+          origen?: string | null
+          rut?: string | null
+        }
+        Update: {
+          contacto?: string | null
+          created_at?: string | null
+          datos_json?: Json | null
+          estado?: string | null
+          id?: number
+          nombre_empresa?: string | null
+          origen?: string | null
+          rut?: string | null
         }
         Relationships: []
       }
@@ -1895,7 +1931,11 @@ export type Database = {
       }
       vw_empresas_activas_admin_sac: {
         Row: {
+          ejecutivo_ob: string | null
+          ejecutivo_sac: string | null
           empkey: number | null
+          estado_final: string | null
+          fecha_paso_produccion: string | null
           logo: string | null
           nombre: string | null
           rut: string | null
