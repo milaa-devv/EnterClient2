@@ -80,9 +80,8 @@ export const useEmpresaSearch = (options?: UseEmpresaSearchOptions): UseEmpresaS
         nombre,
         nombre_fantasia,
         estado,
-        created_at,
+        producto,
         updated_at,
-        fecha_inicio,
         logo,
         domicilio,
         telefono,
@@ -98,9 +97,9 @@ export const useEmpresaSearch = (options?: UseEmpresaSearchOptions): UseEmpresaS
           encargado_rut,
           encargado_email,
           encargado_phone,
-          fecha_inicio,
           fecha_fin,
-          updated_at
+          updated_at,
+          configuracion
         ),
         ${joins.sac} (
           nombre_sac,
@@ -124,13 +123,24 @@ export const useEmpresaSearch = (options?: UseEmpresaSearchOptions): UseEmpresaS
       if (filters.fechaFin) query = query.lte('updated_at', filters.fechaFin)
 
       // Filtro OB adicional por vista (pendiente / proceso / pap / asignadas)
-      if (joins.isOb && options?.obView) {
-        const v = options.obView
+      if (joins.isOb) {
+        // OB solo ve las empresas asignadas a él (ADMIN_OB ve todo)
+        if (role === 'OB' && profile?.rut) {
+          query = query.eq('empresa_onboarding.encargado_rut', profile.rut)
+        }
 
-        if (v === 'configurar') query = query.eq('empresa_onboarding.estado', 'pendiente')
-        if (v === 'proceso') query = query.eq('empresa_onboarding.estado', 'en_proceso')
-        if (v === 'pap') query = query.ilike('empresa_onboarding.estado', '%PAP%')
-        if (v === 'asignadas' && profile?.rut) query = query.eq('empresa_onboarding.encargado_rut', profile.rut)
+        if (options?.obView) {
+          const v = options.obView
+          if (v === 'configurar') query = query.eq('empresa_onboarding.estado', 'pendiente')
+          if (v === 'proceso')    query = query.eq('empresa_onboarding.estado', 'en_proceso')
+          if (v === 'pap')        query = query.ilike('empresa_onboarding.estado', '%PAP%')
+          if (v === 'asignadas' && profile?.rut) query = query.eq('empresa_onboarding.encargado_rut', profile.rut)
+        }
+      }
+
+      // SAC solo ve empresas que han llegado a PAP (estado SAC o superior)
+      if (role === 'SAC' || role === 'ADMIN_SAC') {
+        query = query.in('estado', ['SAC', 'PAP', 'PRODUCCION', 'COMPLETADA'])
       }
 
       return query
@@ -177,6 +187,7 @@ export const useEmpresaSearch = (options?: UseEmpresaSearchOptions): UseEmpresaS
 
       const normalized = ((data as any[]) ?? []).map((row) => ({
         ...row,
+        producto: row.producto ?? null,
         empresa_comercial: firstOrSelf(row.empresa_comercial),
         empresa_onboarding: firstOrSelf(row.empresa_onboarding),
         empresa_sac: firstOrSelf(row.empresa_sac),

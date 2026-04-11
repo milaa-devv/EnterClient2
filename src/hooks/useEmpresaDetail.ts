@@ -41,25 +41,48 @@ export const useEmpresaDetail = (empkey: number | null): UseEmpresaDetailReturn 
 
       if (empresaError) throw empresaError
 
+      // ——— Mapeo producto COM → ProductoKey[] para formulario OB ———
+      type ProductoKey = 'ENTERFAC' | 'ANDESPOS' | 'ANDESPOS_ENTERBOX' | 'LCE'
+
+      function mapearProducto(val: string | null): ProductoKey[] {
+        if (!val) return []
+        switch (val) {
+          case 'ENTERFAC': case 'TAX':     return ['ENTERFAC']
+          case 'ANDESPOS': case 'POS':     return ['ANDESPOS']
+          case 'POS_BOX':                  return ['ANDESPOS_ENTERBOX']
+          case 'LCE':                      return ['LCE']
+          default:                         return []
+        }
+      }
+
+      const productoDirecto  = mapearProducto(empresaData.producto)
+      const productosRelacion = (empresaData.productos ?? [])
+        .map((p: any) => mapearProducto(p.producto?.tipo))
+        .flat() as ProductoKey[]
+
+      const productosFinales: ProductoKey[] =
+        productoDirecto.length > 0 ? productoDirecto :
+        productosRelacion.length > 0 ? productosRelacion : []
+
       // Transformar datos a la estructura esperada
       const empresaCompleta: EmpresaCompleta = {
-        id: empresaData.id,
         empkey: empresaData.empkey,
-        estado: empresaData.estado,
-        created_at: empresaData.created_at,
-        updated_at: empresaData.updated_at,
+        estado: (empresaData.estado ?? 'SAC') as any,
+        producto: empresaData.producto,
+        productos: productosFinales,
+        updated_at: empresaData.updated_at ?? undefined,
         comercial: {
           datosGenerales: {
-            nombre: empresaData.nombre,
-            rut: empresaData.rut,
+            nombre: empresaData.nombre ?? '',
+            rut: empresaData.rut ?? '',
             categoria_tributaria: empresaData.categorias?.map((c: any) => c.categoria.cod) || [],
             logo: empresaData.logo,
-            fecha_inicio: empresaData.fecha_inicio
+            fecha_inicio: empresaData.fecha_inicio ?? null,
           },
           datosContacto: {
-            domicilio: empresaData.domicilio,
-            telefono: empresaData.telefono,
-            correo: empresaData.correo
+            domicilio: empresaData.domicilio ?? '',
+            telefono: empresaData.telefono ?? '',
+            correo: empresaData.correo ?? ''
           },
           actividadesEconomicas: empresaData.actividades?.map((a: any) => a.actividad) || [],
           representantesLegales: empresaData.representantes?.map((r: any) => r.representante) || [],
@@ -77,9 +100,9 @@ export const useEmpresaDetail = (empkey: number | null): UseEmpresaDetailReturn 
               tipo: 'ADMINISTRATIVA' as const
             })) || [])
           ],
-          usuariosPlataforma: [], // Se cargaría desde otra tabla si existe
+          usuariosPlataforma: [],
           configuracionNotificaciones: [],
-          informacionPlan: empresaData.productos?.[0]?.producto || null
+          informacionPlan: { producto: productosFinales[0] as any, productos: productosFinales }
         }
       }
 

@@ -201,6 +201,8 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
   const [efIntegracionPorDoc, setEfIntegracionPorDoc] = useState<EfIntegracionPorDoc>({});
   type EfWsTipoPorDoc = Partial<Record<DteKey, WebServiceTipo | "">>;
   const [efWsTipoPorDoc, setEfWsTipoPorDoc] = useState<EfWsTipoPorDoc>({});
+  const [efWsEndpointPorDoc, setEfWsEndpointPorDoc] = useState<Partial<Record<DteKey, string>>>({});
+  const [efWsGetEstadoPorDoc, setEfWsGetEstadoPorDoc] = useState<Partial<Record<DteKey, string>>>({});
 
   // Prellenar per-doc con "general" si no hay override
   useEffect(() => {
@@ -219,6 +221,8 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
   type Codificacion = "ANSI" | "UTF-8";
   type EfBatchCfg = { file: File | null; codificacion: Codificacion; preview: string[][] };
   const [efBatchPorDoc, setEfBatchPorDoc] = useState<Partial<Record<DteKey, EfBatchCfg>>>({});
+  const [efBatchCamCustom, setEfBatchCamCustom] = useState<Partial<Record<DteKey, boolean>>>({});
+  const [efBatchParserPorDoc, setEfBatchParserPorDoc] = useState<Partial<Record<DteKey, "SI" | "NO">>>({});
 
   const handleCsvPerDoc = (doc: DteKey, file: File | null, cod: Codificacion) => {
     if (!file) {
@@ -248,8 +252,10 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
   });
 
   /** Modalidad por documento (Enterfact) */
-  const [enterfacGeneral, setEnterfacGeneral] = useState<"" | ModalidadEnterfac>("");
+  const [enterfacGeneral] = useState<"" | ModalidadEnterfac>("");
   type EnterfacPorDoc = Partial<Record<DteKey, ModalidadEnterfac>>;
+  type EnterfacPorDocMulti = Partial<Record<DteKey, ModalidadEnterfac[]>>;
+  const [enterfacPorDocMulti, setEnterfacPorDocMulti] = useState<EnterfacPorDocMulti>({});
   const [enterfacPorDoc, setEnterfacPorDoc] = useState<EnterfacPorDoc>({});
   useEffect(() => {
     if (!enterfacGeneral) return;
@@ -263,8 +269,10 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
   }, [enterfacGeneral]);
 
   /** Modalidad por documento (Andes) */
-  const [andesGeneral, setAndesGeneral] = useState<"" | ModalidadAndes>("");
+  const [andesGeneral] = useState<"" | ModalidadAndes>("");
   type AndesPorDoc = Partial<Record<DteKey, ModalidadAndes>>;
+  type AndesPorDocMulti = Partial<Record<DteKey, ModalidadAndes[]>>;
+  const [andesPorDocMulti, setAndesPorDocMulti] = useState<AndesPorDocMulti>({});
   const [andesPorDoc, setAndesPorDoc] = useState<AndesPorDoc>({});
   useEffect(() => {
     if (!andesGeneral) return;
@@ -291,6 +299,8 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
 
   /** Sucursales */
   const [boxes, setBoxes] = useState<any[]>(empresa?.onboarding?.configuracionEmpresa?.boxes || []);
+  const [andesSucursalCount, setAndesSucursalCount] = useState<number>(1);
+  const [andesSucursalNombres, setAndesSucursalNombres] = useState<string[]>(["Matriz"]);
 
   /* === Pasos (Step) === */
   const STEPS: StepKey[] = useMemo(() => {
@@ -384,8 +394,61 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
   };
 
   /* === Guardar === */
+  const buildPayload = () => ({
+    productos,
+    enterfac: {
+      ...enterfac,
+      dte_habilitados: enterfac.dte_habilitados,
+      layout: enterfac.layout,
+      layout_key: enterfac.layout_key,
+      url_layout_selected: enterfac.url_layout_selected,
+      url_layout_custom: enterfac.url_layout_custom,
+      modalidades: {
+        general: enterfacGeneral || null,
+        porDocumento: enterfacPorDoc,
+        porDocumentoMulti: enterfacPorDocMulti,
+      },
+      integraciones: {
+        general: efIntegracionGeneral,
+        porDocumento: efIntegracionPorDoc,
+        wsTipoPorDocumento: efWsTipoPorDoc,
+        wsEndpointPorDocumento: efWsEndpointPorDoc,
+        wsGetEstadoPorDocumento: efWsGetEstadoPorDoc,
+        batchPorDocumento: Object.fromEntries(
+          Object.entries(efBatchPorDoc).map(([k, v]) => [k, {
+            codificacion: v?.codificacion ?? "ANSI",
+            csvNombre: v?.file?.name ?? null,
+            camCustom: efBatchCamCustom[k as DteKey] ?? false,
+            parser: efBatchParserPorDoc[k as DteKey] ?? "NO",
+          }])
+        ),
+      },
+      versiones: {
+        winPlugin: enterfac.version_winplugin,
+        winEmisor: enterfac.version_emisor,
+        winEmisorWS: enterfac.version_win_emisor_ws,
+        winBatch: enterfac.version_winbatch,
+      },
+    },
+    andespos: {
+      ...andespos,
+      modalidades: {
+        general: andesGeneral || null,
+        porDocumento: andesPorDoc,
+        porDocumentoMulti: andesPorDocMulti,
+      },
+      sucursales: andesSucursalNombres.slice(0, andesSucursalCount),
+    },
+    lce: {
+      libro_diario: lce.libro_diario?.name ?? null,
+      plan_cuenta: lce.plan_cuenta?.name ?? null,
+      tipos_dte: lce.tipos_dte?.name ?? null,
+      centro_responsabilidad: lce.centro_responsabilidad?.name ?? null,
+    },
+    boxes: (productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) ? boxes : [],
+  });
+
   const save = () => {
-    // Validaciones layout EF
     if (productos.includes("ENTERFAC")) {
       if (enterfac.layout === "ESTANDAR") {
         if (!enterfac.layout_key) return alert("Debes seleccionar un layout estándar.");
@@ -398,55 +461,20 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
         }
       }
     }
-
-    const payload = {
-      productos,
-      enterfac: {
-        ...enterfac,
-        dte_habilitados: enterfac.dte_habilitados,
-        layout: enterfac.layout,
-        layout_key: enterfac.layout_key,
-        url_layout_selected: enterfac.url_layout_selected,
-        url_layout_custom: enterfac.url_layout_custom,
-        modalidades: {
-          general: enterfacGeneral || null,
-          porDocumento: enterfacPorDoc,
-        },
-        integraciones: {
-          general: efIntegracionGeneral,
-          porDocumento: efIntegracionPorDoc,
-          wsTipoPorDocumento: efWsTipoPorDoc,
-          batchPorDocumento: Object.fromEntries(
-            Object.entries(efBatchPorDoc).map(([k, v]) => [k, { codificacion: v?.codificacion ?? "ANSI", csvNombre: v?.file?.name ?? null }])
-          ),
-        },
-        versiones: {
-          // AppFull eliminado
-          winPlugin: enterfac.version_winplugin,
-          winEmisor: enterfac.version_emisor,
-          winEmisorWS: enterfac.version_win_emisor_ws,
-          winBatch: enterfac.version_winbatch,
-        },
-      },
-      andespos: {
-        ...andespos,
-        modalidades: {
-          general: andesGeneral || null,
-          porDocumento: andesPorDoc,
-        },
-      },
-      lce: {
-        libro_diario: lce.libro_diario?.name ?? null,
-        plan_cuenta: lce.plan_cuenta?.name ?? null,
-        tipos_dte: lce.tipos_dte?.name ?? null,
-        centro_responsabilidad: lce.centro_responsabilidad?.name ?? null,
-      },
-      boxes: (productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) ? boxes : [],
-    };
-
+    const payload = buildPayload();
     onSave?.(payload);
     if (empresa?.empkey) navigate(`/empresa/${empresa.empkey}`);
     else alert("Configuración guardada (ver payload en onSave).");
+  };
+
+  const guardarYSeguir = () => {
+    onSave?.(buildPayload());
+    next();
+  };
+
+  const guardarYSalir = () => {
+    onSave?.(buildPayload());
+    navigate('/onboarding/mis-empresas');
   };
   /* === Render Productos === */
   const renderProductos = () => (
@@ -701,42 +729,41 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                 </div>
               </div>
 
-              {/* Modalidad de Emisión — ENTERFACT */}
+              {/* Modalidad de Emisión — ENTERFACT (multi-selección) */}
               <div className="col-12 mt-4">
-                <FieldLabel>Modalidad de Emisión — General (por documento)</FieldLabel>
-                <select
-                  className="form-select mb-3"
-                  value={enterfacGeneral}
-                  onChange={(e) => setEnterfacGeneral(e.target.value as "" | ModalidadEnterfac)}
-                >
-                  <option value="">(Sin general)</option>
-                  <option value="Online">Online</option>
-                  <option value="Online Web">Online Web</option>
-                  <option value="Offline">Offline</option>
-                  <option value="Offline Web">Offline Web</option>
-                  <option value="Ciega">Ciega</option>
-                </select>
-
+                <FieldLabel>Modalidad de Emisión — por documento (multi-selección)</FieldLabel>
+                <div className="alert alert-info small py-2 mb-3">
+                  Puede seleccionar más de una modalidad por documento.
+                  Ejemplo: Factura Afecta puede emitirse tanto Online como Offline.
+                </div>
                 {((enterfac.dte_habilitados || []) as DteKey[]).map((id) => {
                   const meta = [...DTE_CATALOGO["Nacionales"], ...DTE_CATALOGO["Exportación"]].find(x => x.id === id);
                   if (!meta) return null;
-                  const label = `${meta.nombre} (${meta.id})`;
+                  const modalidades: ModalidadEnterfac[] = ["Online", "Online Web", "Offline", "Offline Web", "Ciega"];
+                  const seleccionadas: ModalidadEnterfac[] = (enterfacPorDocMulti[id] || []);
                   return (
-                    <div key={id} className="row g-2 align-items-center mb-2">
-                      <div className="col-md-6">{label}</div>
-                      <div className="col-md-6">
-                        <select
-                          className="form-select"
-                          value={enterfacPorDoc[id] || ""}
-                          onChange={(e) => setEnterfacPorDoc((prev) => ({ ...prev, [id]: e.target.value as ModalidadEnterfac }))}
-                        >
-                          <option value="">{`(Usar General${enterfacGeneral ? `: ${enterfacGeneral}` : ""})`}</option>
-                          <option value="Online">Online</option>
-                          <option value="Online Web">Online Web</option>
-                          <option value="Offline">Offline</option>
-                          <option value="Offline Web">Offline Web</option>
-                          <option value="Ciega">Ciega</option>
-                        </select>
+                    <div key={id} className="border rounded p-2 mb-2">
+                      <div className="fw-semibold small mb-2">{meta.nombre} ({meta.id})</div>
+                      <div className="d-flex flex-wrap gap-3">
+                        {modalidades.map(m => (
+                          <div className="form-check" key={m}>
+                            <input
+                              className="form-check-input" type="checkbox"
+                              id={`ef-modal-${id}-${m}`}
+                              checked={seleccionadas.includes(m)}
+                              onChange={e => {
+                                setEnterfacPorDocMulti(prev => {
+                                  const curr = prev[id] || [];
+                                  const next = e.target.checked
+                                    ? Array.from(new Set([...curr, m]))
+                                    : curr.filter(x => x !== m);
+                                  return { ...prev, [id]: next };
+                                });
+                              }}
+                            />
+                            <label className="form-check-label" htmlFor={`ef-modal-${id}-${m}`}>{m}</label>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   );
@@ -794,12 +821,12 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                         })}
                       </div>
 
-                      {/* Tipo de WS cuando corresponda */}
+                      {/* Web Service: tipo + endpoints */}
                       {(hasWS || (efIntegracionPorDoc[id] || []).includes("Web Service")) && (
-                        <div className="mt-2">
+                        <div className="mt-2 border rounded p-2 bg-light">
                           <FieldLabel>Tipo de Web Service</FieldLabel>
                           <select
-                            className="form-select"
+                            className="form-select mb-2"
                             value={efWsTipoPorDoc[id] || ""}
                             onChange={(e) => setEfWsTipoPorDoc(prev => ({ ...prev, [id]: e.target.value as WebServiceTipo }))}
                           >
@@ -807,6 +834,30 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                             <option value="REST">API REST</option>
                             <option value="SOAP">SOAP</option>
                           </select>
+                          {(efWsTipoPorDoc[id] === "REST" || efWsTipoPorDoc[id] === "SOAP") && (
+                            <div className="row g-2 mt-1">
+                              <div className="col-md-6">
+                                <FieldLabel>Endpoint</FieldLabel>
+                                <input
+                                  className="form-control"
+                                  type="url"
+                                  placeholder="https://..."
+                                  value={efWsEndpointPorDoc[id] || ""}
+                                  onChange={e => setEfWsEndpointPorDoc(prev => ({ ...prev, [id]: e.target.value }))}
+                                />
+                              </div>
+                              <div className="col-md-6">
+                                <FieldLabel>getEstado URL</FieldLabel>
+                                <input
+                                  className="form-control"
+                                  type="url"
+                                  placeholder="https://..."
+                                  value={efWsGetEstadoPorDoc[id] || ""}
+                                  onChange={e => setEfWsGetEstadoPorDoc(prev => ({ ...prev, [id]: e.target.value }))}
+                                />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -897,35 +948,40 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                 </div>
               </div>
 
-              {/* Modalidad de Emisión — ANDES (General + overrides) */}
+              {/* Modalidad de Emisión — ANDES (multi-selección por documento) */}
               <div className="col-12 mt-3">
-                <FieldLabel>Modalidad de Emisión — General (por documento)</FieldLabel>
-                <select
-                  className="form-select mb-3"
-                  value={andesGeneral}
-                  onChange={(e) => setAndesGeneral(e.target.value as "" | "Offline Web" | "Ciega")}
-                >
-                  <option value="">(Sin general)</option>
-                  <option value="Offline Web">Offline Web</option>
-                  <option value="Ciega">Ciega</option>
-                </select>
-
+                <FieldLabel>Modalidad de Emisión — por documento (multi-selección)</FieldLabel>
+                <div className="alert alert-info small py-2 mb-3">
+                  Puede seleccionar más de una modalidad por documento.
+                </div>
                 {(andespos.dte_habilitados || []).map((id: DteKey) => {
                   const meta = [...DTE_CATALOGO["Nacionales"], ...DTE_CATALOGO["No tributarios"]].find(x => x.id === id);
                   if (!meta) return null;
+                  const modalidades: ModalidadAndes[] = ["Offline Web", "Ciega"];
+                  const seleccionadas: ModalidadAndes[] = (andesPorDocMulti[id] || []);
                   return (
-                    <div key={id} className="row g-2 align-items-center mb-2">
-                      <div className="col-md-6">{labelDte({ id, nombre: meta.nombre })}</div>
-                      <div className="col-md-6">
-                        <select
-                          className="form-select"
-                          value={andesPorDoc[id] || ""}
-                          onChange={(e) => setAndesPorDoc((prev) => ({ ...prev, [id]: e.target.value as "Offline Web" | "Ciega" }))}
-                        >
-                          <option value="">{`(Usar General${andesGeneral ? `: ${andesGeneral}` : ""})`}</option>
-                          <option value="Offline Web">Offline Web</option>
-                          <option value="Ciega">Ciega</option>
-                        </select>
+                    <div key={id} className="border rounded p-2 mb-2">
+                      <div className="fw-semibold small mb-2">{meta.nombre} ({id})</div>
+                      <div className="d-flex flex-wrap gap-3">
+                        {modalidades.map(m => (
+                          <div className="form-check" key={m}>
+                            <input
+                              className="form-check-input" type="checkbox"
+                              id={`ap-modal-${id}-${m}`}
+                              checked={seleccionadas.includes(m)}
+                              onChange={e => {
+                                setAndesPorDocMulti(prev => {
+                                  const curr = prev[id] || [];
+                                  const next = e.target.checked
+                                    ? Array.from(new Set([...curr, m]))
+                                    : curr.filter(x => x !== m);
+                                  return { ...prev, [id]: next };
+                                });
+                              }}
+                            />
+                            <label className="form-check-label" htmlFor={`ap-modal-${id}-${m}`}>{m}</label>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   );
@@ -1012,8 +1068,33 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                     <div key={id} className="border rounded p-2 mb-3">
                       <div className="mb-2"><strong>{meta?.nombre} ({id})</strong></div>
                       <div className="row g-3">
+                        {/* CAM Custom toggle */}
+                        <div className="col-12">
+                          <div className="form-check form-switch">
+                            <input
+                              className="form-check-input" type="checkbox" id={`cam-custom-${id}`}
+                              checked={!!(efBatchCamCustom[id])}
+                              onChange={e => {
+                                setEfBatchCamCustom(prev => ({ ...prev, [id]: e.target.checked }));
+                                setEfBatchParserPorDoc(prev => ({ ...prev, [id]: e.target.checked ? "SI" : "NO" }));
+                              }}
+                            />
+                            <label className="form-check-label" htmlFor={`cam-custom-${id}`}>
+                              CAM Custom
+                            </label>
+                          </div>
+                        </div>
+                        {/* Parser (readonly, automático) */}
+                        <div className="col-md-3">
+                          <FieldLabel>Parser Batch</FieldLabel>
+                          <input
+                            className="form-control bg-light" readOnly
+                            value={efBatchParserPorDoc[id] ?? "NO"}
+                          />
+                          <small className="text-muted">Automático según CAM Custom</small>
+                        </div>
                         <div className="col-md-4">
-                          <FieldLabel>CAM (.csv)</FieldLabel>
+                          <FieldLabel>Adjuntar CAM (.csv)</FieldLabel>
                           <input
                             type="file" className="form-control" accept=".csv,text/csv"
                             onChange={(e) => handleCsvPerDoc(id, e.target.files?.[0] ?? null, cfg.codificacion)}
@@ -1181,10 +1262,45 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
       <div>
         <SectionTitle>Sucursales</SectionTitle>
 
-        {/* AndesPOS: módulo placeholder (obligatorio pero sin contenido) */}
+        {/* AndesPOS: Matriz + sucursales adicionales */}
         {isAndesPOS && !isEnterbox && (
-          <div className="alert alert-info">
-            Este módulo de sucursales para <strong>AndesPOS</strong> está creado pero <em>sin contenido</em> por ahora.
+          <div>
+            <div className="alert alert-info small py-2 mb-3">
+              Por defecto existe <strong>1 sucursal Matriz</strong>. Si la empresa tiene más sucursales, indique la cantidad total.
+            </div>
+            <div className="row g-3 mb-3">
+              <div className="col-md-4">
+                <FieldLabel>Cantidad de sucursales (incluye Matriz)</FieldLabel>
+                <input
+                  type="number" className="form-control" min={1}
+                  value={andesSucursalCount}
+                  onChange={e => {
+                    const n = Math.max(1, Number(e.target.value || 1));
+                    setAndesSucursalCount(n);
+                    setAndesSucursalNombres(prev => Array.from({ length: n }, (_, i) => prev[i] || (i === 0 ? "Matriz" : "")));
+                  }}
+                />
+              </div>
+            </div>
+            {andesSucursalCount > 0 && (
+              <div className="row g-3">
+                {Array.from({ length: andesSucursalCount }).map((_, i) => (
+                  <div className="col-md-4" key={i}>
+                    <FieldLabel>{i === 0 ? "Nombre Sucursal 1 (Matriz)" : `Nombre Sucursal ${i + 1}`}</FieldLabel>
+                    <input
+                      className="form-control"
+                      placeholder={i === 0 ? "Matriz" : `Sucursal ${i + 1}`}
+                      value={andesSucursalNombres[i] || ""}
+                      onChange={e => setAndesSucursalNombres(prev => {
+                        const next = [...prev];
+                        next[i] = e.target.value;
+                        return next;
+                      })}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -1406,6 +1522,14 @@ function renderResumen() {
   /* === Render Principal === */
   return (
     <div style={{ maxWidth: 900, margin: "2rem auto" }}>
+      <button
+        type="button"
+        className="btn btn-link p-0 text-muted d-flex align-items-center gap-1 mb-3"
+        onClick={() => navigate(-1)}
+        style={{ fontSize: 14 }}
+      >
+        ← Volver
+      </button>
       <PageHeading>Onboarding – Configuración de Empresa</PageHeading>
       <div className="mb-2 small text-muted d-flex align-items-center gap-2">
         <div className="flex-grow-1 progress" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
@@ -1425,11 +1549,23 @@ function renderResumen() {
       </Tabs>
 
       <div className="sticky-bottom bg-white border-top py-3" style={{ position: "sticky", bottom: 0, zIndex: 5 }}>
-        <div className="d-flex justify-content-between" style={{ maxWidth: 900, margin: "0 auto" }}>
-          <button type="button" className="btn btn-outline-primary" onClick={prev} disabled={STEPS[0] === current}>Atrás</button>
-          {current !== "resumen"
-            ? <button type="button" className="btn btn-primary" onClick={next} disabled={!stepValid[current]}>Siguiente</button>
-            : <button type="button" className="btn btn-gradient" onClick={save}>Guardar y Enviar</button>}
+        <div className="d-flex justify-content-between align-items-center" style={{ maxWidth: 900, margin: "0 auto" }}>
+          <button type="button" className="btn btn-outline-secondary" onClick={prev} disabled={STEPS[0] === current}>
+            Atrás
+          </button>
+          <div className="d-flex gap-2">
+            <button type="button" className="btn btn-outline-primary" onClick={guardarYSalir}>
+              Guardar y salir
+            </button>
+            {current !== "resumen"
+              ? <button type="button" className="btn btn-primary" onClick={guardarYSeguir} disabled={!stepValid[current]}>
+                  Guardar y seguir
+                </button>
+              : <button type="button" className="btn btn-gradient" onClick={save}>
+                  Guardar y Enviar
+                </button>
+            }
+          </div>
         </div>
       </div>
     </div>

@@ -5,7 +5,7 @@ export interface DatosGenerales {
   rut: string
   categoria_tributaria: number[]
   logo: string | null
-  fecha_inicio: string | null
+  fecha_inicio?: string | null
 }
 
 export interface DatosContacto {
@@ -64,10 +64,14 @@ export interface ConfiguracionNotificacion {
 }
 
 export interface InformacionPlan {
-  producto: 'ENTERFAC' | 'ANDESPOS'
-  codigo_plan: string
+  producto?: 'ENTERFAC' | 'ANDESPOS'
+  codigo_plan?: string
   plan_nombre?: string
   precio?: string
+  // Campos extendidos del InformacionPlanStep
+  selections?: Record<string, any>
+  total?: number
+  [key: string]: any
 }
 
 // === Datos Comercial completos ===
@@ -140,9 +144,13 @@ export interface EmpresaCompleta {
   telefono?: string
   correo?: string
 
-  estado: 'COMERCIAL' | 'ONBOARDING' | 'SAC' | 'COMPLETADA'
+  // Producto desde formulario Comercial
+  producto?: string | null
+  productos?: string[]
+
+  estado: 'COMERCIAL' | 'ONBOARDING' | 'SAC' | 'COMPLETADA' | string
   created_at?: string
-  updated_at?: string
+  updated_at?: string | null
 
   // Relaciones (1:1)
   empresa_comercial?: {

@@ -1,30 +1,31 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { 
-  Plus, 
-  Clock, 
-  History, 
-  Bell, 
-  TrendingUp, 
+import {
+  Plus,
+  Clock,
+  History,
+  Bell,
+  TrendingUp,
   AlertCircle,
   CheckCircle,
-  Building2
+  Building2,
+  Download,
 } from 'lucide-react'
 import { useEmpresaSearch } from '@/hooks/useEmpresaSearch'
+import { usePreIngresos } from '@/hooks/usePreIngresos'
 
 const ComercialDashboard: React.FC = () => {
   const { empresas, loading } = useEmpresaSearch()
-  
-  // Filtrar empresas por estado para estadísticas
+  const { stats: preIngresoStats, loading: loadingPI } = usePreIngresos()
+
   const empresasComercial = empresas.filter(e => e.estado === 'COMERCIAL')
   const empresasEnviadasOB = empresas.filter(e => e.estado === 'ONBOARDING')
-  
-  // Datos mock para estadísticas
+
   const estadisticas = {
     empresasEnProceso: empresasComercial.length,
     empresasEnviadas: empresasEnviadasOB.length,
     totalMes: empresasComercial.length + empresasEnviadasOB.length,
-    pendienteRevision: 3
+    pendienteRevision: 3,
   }
 
   const tareasRecientes = [
@@ -34,7 +35,7 @@ const ComercialDashboard: React.FC = () => {
       empresa: 'Empresa Demo S.A.',
       descripcion: 'Agregar segundo representante legal',
       prioridad: 'alta',
-      fecha: '2025-09-21'
+      fecha: '2025-09-21',
     },
     {
       id: 2,
@@ -42,7 +43,7 @@ const ComercialDashboard: React.FC = () => {
       empresa: 'Comercial ABC Ltda.',
       descripcion: 'Completar documentos tributarios',
       prioridad: 'media',
-      fecha: '2025-09-20'
+      fecha: '2025-09-20',
     },
     {
       id: 3,
@@ -50,8 +51,8 @@ const ComercialDashboard: React.FC = () => {
       empresa: 'Servicios XYZ S.A.',
       descripcion: 'Subir logo de la empresa',
       prioridad: 'baja',
-      fecha: '2025-09-19'
-    }
+      fecha: '2025-09-19',
+    },
   ]
 
   return (
@@ -79,6 +80,33 @@ const ComercialDashboard: React.FC = () => {
 
       {/* Estadísticas Cards */}
       <div className="row g-4 mb-4">
+        {/* Counter pre-ingresos mes */}
+        <div className="col-lg-3 col-md-6">
+          <Link to="/comercial/pre-ingresos" className="text-decoration-none">
+            <div className="card border-0 shadow-sm h-100">
+              <div className="card-body">
+                <div className="d-flex align-items-center justify-content-between">
+                  <div>
+                    <p className="text-muted small mb-1">Pre-Ingresos este mes</p>
+                    <h3 className="fw-bold mb-0">
+                      {loadingPI ? '—' : preIngresoStats.totalMes}
+                    </h3>
+                    {preIngresoStats.pendientes > 0 && (
+                      <small className="text-warning">
+                        <AlertCircle size={12} className="me-1" />
+                        {preIngresoStats.pendientes} pendiente{preIngresoStats.pendientes > 1 ? 's' : ''}
+                      </small>
+                    )}
+                  </div>
+                  <div className="p-3 bg-warning rounded-circle bg-opacity-10">
+                    <Download className="text-warning" size={24} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Link>
+        </div>
+
         <div className="col-lg-3 col-md-6">
           <div className="card border-0 shadow-sm">
             <div className="card-body">
@@ -132,23 +160,6 @@ const ComercialDashboard: React.FC = () => {
             </div>
           </div>
         </div>
-
-        <div className="col-lg-3 col-md-6">
-          <div className="card border-0 shadow-sm">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <p className="text-muted small mb-1">Pendiente Revisión</p>
-                  <h3 className="fw-bold mb-0">{estadisticas.pendienteRevision}</h3>
-                  <small className="text-warning">Requieren atención</small>
-                </div>
-                <div className="p-3 bg-warning rounded-circle bg-opacity-10">
-                  <AlertCircle className="text-warning" size={24} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="row g-4">
@@ -173,6 +184,27 @@ const ComercialDashboard: React.FC = () => {
                       <p className="card-text small text-muted">
                         Iniciar proceso de registro de nueva empresa cliente
                       </p>
+                    </div>
+                  </Link>
+                </div>
+
+                {/* ✅ NUEVO: Pre-Ingresos HubSpot */}
+                <div className="col-md-6">
+                  <Link
+                    to="/comercial/pre-ingresos"
+                    className="card border text-decoration-none h-100"
+                  >
+                    <div className="card-body text-center p-4">
+                      <Download className="text-warning mb-2" size={32} />
+                      <h6 className="card-title">Pre-Ingresos HubSpot</h6>
+                      <p className="card-text small text-muted">
+                        Solicitudes recibidas desde formularios
+                      </p>
+                      {!loadingPI && preIngresoStats.pendientes > 0 && (
+                        <span className="badge bg-warning">
+                          {preIngresoStats.pendientes} pendiente{preIngresoStats.pendientes > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </div>
                   </Link>
                 </div>
@@ -257,19 +289,20 @@ const ComercialDashboard: React.FC = () => {
                   {tareasRecientes.map((tarea) => (
                     <div key={tarea.id} className="border rounded p-3">
                       <div className="d-flex justify-content-between align-items-start mb-2">
-                        <h6 className="small fw-semibold mb-1">
-                          {tarea.empresa}
-                        </h6>
-                        <span className={`badge ${
-                          tarea.prioridad === 'alta' ? 'bg-danger' :
-                          tarea.prioridad === 'media' ? 'bg-warning' : 'bg-info'
-                        }`}>
+                        <h6 className="small fw-semibold mb-1">{tarea.empresa}</h6>
+                        <span
+                          className={`badge ${
+                            tarea.prioridad === 'alta'
+                              ? 'bg-danger'
+                              : tarea.prioridad === 'media'
+                              ? 'bg-warning'
+                              : 'bg-info'
+                          }`}
+                        >
                           {tarea.prioridad}
                         </span>
                       </div>
-                      <p className="small text-muted mb-2">
-                        {tarea.descripcion}
-                      </p>
+                      <p className="small text-muted mb-2">{tarea.descripcion}</p>
                       <small className="text-muted">
                         {new Date(tarea.fecha).toLocaleDateString('es-CL')}
                       </small>
@@ -330,23 +363,16 @@ const ComercialDashboard: React.FC = () => {
                               {empresa.comercial?.datosGenerales?.nombre || 'Sin nombre'}
                             </div>
                           </td>
+                          <td>{empresa.comercial?.datosGenerales?.rut || 'Sin RUT'}</td>
+                          <td className="fw-bold text-primary">{empresa.empkey}</td>
                           <td>
-                            {empresa.comercial?.datosGenerales?.rut || 'Sin RUT'}
-                          </td>
-                          <td className="fw-bold text-primary">
-                            {empresa.empkey}
-                          </td>
-                          <td>
-                            <span className="badge bg-warning">
-                              {empresa.estado}
-                            </span>
+                            <span className="badge bg-warning">{empresa.estado}</span>
                           </td>
                           <td>
                             <small className="text-muted">
-                              {empresa.updated_at ? 
-                                new Date(empresa.updated_at).toLocaleString('es-CL') : 
-                                'N/A'
-                              }
+                              {empresa.updated_at
+                                ? new Date(empresa.updated_at).toLocaleString('es-CL')
+                                : 'N/A'}
                             </small>
                           </td>
                           <td>

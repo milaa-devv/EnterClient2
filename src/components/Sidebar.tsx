@@ -1,8 +1,8 @@
-// src/components/Sidebar.tsx
 import React, { useEffect, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth, usePermissions } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
+import { usePreIngresos } from '@/hooks/usePreIngresos'
 import {
   Building2,
   Plus,
@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Settings,
   LogOut,
+  Download
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -33,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate()
   const { profile } = useAuth()
   const { isComercial, isOnboardingAdmin, isOnboardingExecutive } = usePermissions()
+  const { stats: preIngresoStats } = usePreIngresos()
 
   const role = profile?.perfil?.nombre
 
@@ -143,6 +145,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           icon: <Bell className="nav-icon" />,
           path: '/comercial/notificaciones',
           badge: 3,
+        },
+        {
+          id: 'pre-ingresos',
+          label: 'Pre-Ingresos',
+          icon: <Download className="nav-icon" />,
+          path: '/comercial/pre-ingresos',
+          badge: preIngresoStats.pendientes || undefined,
         },
       ]
     }

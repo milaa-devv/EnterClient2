@@ -183,10 +183,13 @@ const OnboardingMisEmpresasAsignadas: React.FC = () => {
                   {pageItems.map((e) => {
                     const p = getProgress(e)
                     const estado = getEstadoOnb(e)
+                    const onb: any = (e as any).empresa_onboarding
+                    const config = onb?.configuracion
+                    const obEmpkey = config?.enterfac?.empkey || config?.andespos?.empkey || 0
 
                     return (
                       <tr key={e.empkey}>
-                        <td className="fw-bold text-primary">{e.empkey}</td>
+                        <td className="fw-bold text-primary">{obEmpkey}</td>
                         <td>{e.rut ? formatRut(e.rut) : '—'}</td>
                         <td>{e.nombre || e.nombre_fantasia || 'Sin nombre'}</td>
                         <td>

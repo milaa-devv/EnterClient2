@@ -1,108 +1,115 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { AlertCircle, ArrowLeft, Inbox, Loader2, UserCheck } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Inbox, Loader2 } from 'lucide-react'
 
 type OnboardingEstado = 'pendiente' | 'en_proceso' | 'completado' | 'cancelado'
 
 interface BandejaRow {
-  id: number            // id de empresa_onboarding
-  empkey: number
-  rut: string | null
-  nombre: string | null
-  producto: string | null
-  estado: OnboardingEstado
+  id:             number
+  empkey:         number
+  rut:            string | null
+  nombre:         string | null
+  producto:       string | null
+  estado:         OnboardingEstado
   encargado_name: string | null
-  encargado_rut: string | null
-  updated_at: string | null
+  encargado_rut:  string | null
+  updated_at:     string | null
 }
 
 interface EjecutivoOB {
-  rut: string
+  rut:    string
   nombre: string
+  perfil: string
 }
 
-const ESTADO_LABEL: Record<OnboardingEstado, string> = {
-  pendiente: 'Pendiente',
-  en_proceso: 'En proceso',
-  completado: 'Completado',
-  cancelado: 'Cancelado'
-}
-
-// Usaremos este alias para no pelear con los tipos de Supabase
 const sb = supabase as any
 
-const OnboardingSolicitudesPendientes: React.FC = () => {
-  const [empresas, setEmpresas] = useState<BandejaRow[]>([])
-  const [ejecutivos, setEjecutivos] = useState<EjecutivoOB[]>([])
-  const [loading, setLoading] = useState(true)
-  const [savingId, setSavingId] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
+const OnboardingAsignarEjecutivos: React.FC = () => {
+  const [sinAsignar,  setSinAsignar]  = useState<BandejaRow[]>([])
+  const [conAsignar,  setConAsignar]  = useState<BandejaRow[]>([])
+  const [ejecutivos,  setEjecutivos]  = useState<EjecutivoOB[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [savingId,    setSavingId]    = useState<number | null>(null)
+  const [error,       setError]       = useState<string | null>(null)
   const navigate = useNavigate()
 
   const loadData = async () => {
     setLoading(true)
     setError(null)
     try {
-      // Traemos empresas + onboarding + producto
-      const { data, error: empresaError } = await sb
+      // ——— Empresas pendientes sin ejecutivo ———
+      const { data: empresaData, error: empresaError } = await sb
         .from('empresa')
         .select(`
           empkey,
           rut,
           nombre,
+          producto,
           empresa_onboarding (
             id,
             estado,
             encargado_name,
             encargado_rut,
             updated_at
-          ),
-          empresa_producto (
-            producto:producto ( tipo )
           )
         `)
 
       if (empresaError) throw empresaError
 
-      const allRows: BandejaRow[] = (data ?? [])
-        .filter((row: any) => row.empresa_onboarding && row.empresa_onboarding.length > 0)
+      const allRows: BandejaRow[] = (empresaData ?? [])
+        .filter((row: any) => row.empresa_onboarding?.length > 0)
         .map((row: any) => {
           const ob = row.empresa_onboarding[0]
-          const prodRel = row.empresa_producto?.[0]?.producto
-
           return {
-            id: ob.id as number,
-            empkey: row.empkey as number,
-            rut: row.rut as string | null,
-            nombre: row.nombre as string | null,
-            producto: (prodRel?.tipo as string | null) ?? null,
-            estado: (ob.estado as OnboardingEstado) ?? 'pendiente',
+            id:             ob.id as number,
+            empkey:         row.empkey as number,
+            rut:            row.rut as string | null,
+            nombre:         row.nombre as string | null,
+            producto:       (row.producto as string | null) ?? null,
+            estado:         (ob.estado as OnboardingEstado) ?? 'pendiente',
             encargado_name: (ob.encargado_name as string | null) ?? null,
-            encargado_rut: (ob.encargado_rut as string | null) ?? null,
-            updated_at: (ob.updated_at as string | null) ?? null
+            encargado_rut:  (ob.encargado_rut as string | null) ?? null,
+            updated_at:     (ob.updated_at as string | null) ?? null,
           }
         })
 
-      // Solo empresas pendientes y sin ejecutivo asignado
-      const pendientesSinEncargado = allRows.filter(
-        (r) => r.estado === 'pendiente' && !r.encargado_rut
-      )
+      // Sin ejecutivo asignado
+      setSinAsignar(allRows.filter(r => !r.encargado_rut))
+      // Con ejecutivo (reasignables) — excluir completados
+      setConAsignar(allRows.filter(r => r.encargado_rut && r.estado !== 'completado'))
 
-      setEmpresas(pendientesSinEncargado)
+      // ——— Ejecutivos OB + ADMIN_OB ———
+      // Primero obtenemos los IDs de perfil OB y ADMIN_OB
+      const { data: perfiles, error: perfilError } = await sb
+        .from('perfil_usuarios')
+        .select('id, nombre')
+        .in('nombre', ['OB', 'ADMIN_OB'])
 
-      // Ejecutivos OB disponibles
+      if (perfilError) throw perfilError
+
+      const perfilIds = (perfiles ?? []).map((p: any) => p.id)
+
+      if (perfilIds.length === 0) {
+        setEjecutivos([])
+        return
+      }
+
       const { data: usuariosData, error: usuariosError } = await sb
         .from('usuario')
-        .select('rut, nombre, perfil_usuarios!inner(nombre)')
-        .eq('perfil_usuarios.nombre', 'OB')
+        .select('rut, nombre, perfil_id')
+        .in('perfil_id', perfilIds)
 
       if (usuariosError) throw usuariosError
 
+      // Mapear perfil_id → nombre de perfil
+      const perfilMap: Record<number, string> = {}
+      ;(perfiles ?? []).forEach((p: any) => { perfilMap[p.id] = p.nombre })
+
       const ejecutivosRows: EjecutivoOB[] = (usuariosData ?? []).map((u: any) => ({
-        rut: u.rut as string,
-        nombre: u.nombre as string
+        rut:    u.rut as string,
+        nombre: u.nombre as string,
+        perfil: perfilMap[u.perfil_id] ?? 'OB',
       }))
 
       setEjecutivos(ejecutivosRows)
@@ -114,43 +121,40 @@ const OnboardingSolicitudesPendientes: React.FC = () => {
     }
   }
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  useEffect(() => { loadData() }, [])
 
   const handleAsignar = async (row: BandejaRow, nuevoEncargadoRut: string) => {
     if (!nuevoEncargadoRut) return
-
     setError(null)
     setSavingId(row.id)
-
     try {
-      const seleccionado = ejecutivos.find((e) => e.rut === nuevoEncargadoRut)
+      const seleccionado    = ejecutivos.find(e => e.rut === nuevoEncargadoRut)
       const nombreEncargado = seleccionado?.nombre ?? null
-      const ahora = new Date().toISOString()
 
-      // Actualizar empresa_onboarding
       const { error: updateError } = await sb
         .from('empresa_onboarding')
         .update({
           encargado_name: nombreEncargado,
-          encargado_rut: nuevoEncargadoRut,
-          updated_at: ahora
+          encargado_rut:  nuevoEncargadoRut,
         })
         .eq('id', row.id)
 
       if (updateError) throw updateError
 
-      // Insertar notificación de asignación
       await sb.from('onboarding_notificacion').insert({
-        empkey: row.empkey,
-        tipo: 'asignado_ejecutivo',
-        descripcion: `Asignada a ${nombreEncargado ?? 'Sin nombre'} (${nuevoEncargadoRut})`
+        empkey:      row.empkey,
+        tipo:        'asignado_ejecutivo',
+        descripcion: `Asignada a ${nombreEncargado ?? 'Sin nombre'} (${nuevoEncargadoRut})`,
       })
 
-      // Como esta pantalla es SOLO de pendientes SIN asignar,
-      // si se asigna la empresa se debe sacar del listado.
-      setEmpresas((prev) => prev.filter((e) => e.id !== row.id))
+      // Mover de sinAsignar a conAsignar o actualizar conAsignar
+      const updated = { ...row, encargado_name: nombreEncargado, encargado_rut: nuevoEncargadoRut }
+      setSinAsignar(prev => prev.filter(e => e.id !== row.id))
+      setConAsignar(prev => {
+        const exists = prev.find(e => e.id === row.id)
+        if (exists) return prev.map(e => e.id === row.id ? updated : e)
+        return [...prev, updated]
+      })
     } catch (err: any) {
       console.error(err)
       setError(err.message ?? 'Error al asignar ejecutivo')
@@ -159,19 +163,78 @@ const OnboardingSolicitudesPendientes: React.FC = () => {
     }
   }
 
+  const formatProducto = (p: string | null) => {
+    if (!p) return '—'
+    if (p === 'ANDESPOS') return 'AndesPOS'
+    if (p === 'ENTERFAC') return 'Enternet'
+    return p
+  }
+
+  // ——— Card de empresa reutilizable ———
+  const EmpresaCard = ({ e, reasignar = false }: { e: BandejaRow; reasignar?: boolean }) => (
+    <div className="col-12">
+      <div className="card">
+        <div className="card-body">
+          <div className="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div>
+              <h6 className="mb-1 fw-semibold">{e.nombre ?? 'Sin nombre'}</h6>
+              <p className="text-muted small mb-1">{e.rut ?? '—'}</p>
+              <div className="d-flex gap-2 align-items-center flex-wrap">
+                {e.producto && (
+                  <span style={{
+                    display: 'inline-block', padding: '2px 10px', borderRadius: 4,
+                    fontSize: 12, fontWeight: 500,
+                    background: e.producto === 'ANDESPOS' ? '#0dcaf020' : '#0d6efd20',
+                    color: e.producto === 'ANDESPOS' ? '#0a7a8f' : '#0a4db5',
+                    border: `1px solid ${e.producto === 'ANDESPOS' ? '#0dcaf060' : '#0d6efd60'}`,
+                  }}>
+                    {formatProducto(e.producto)}
+                  </span>
+                )}
+                {reasignar && e.encargado_name && (
+                  <span className="small text-muted">
+                    Actual: <strong>{e.encargado_name}</strong>
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="d-flex align-items-center gap-2" style={{ minWidth: 320 }}>
+              <select
+                className="form-select form-select-sm"
+                value={reasignar ? (e.encargado_rut ?? '') : ''}
+                disabled={savingId === e.id}
+                onChange={ev => handleAsignar(e, ev.target.value)}
+              >
+                <option value="">{reasignar ? '— Reasignar a…' : 'Seleccionar ejecutivo…'}</option>
+                {ejecutivos.map(ej => (
+                  <option key={ej.rut} value={ej.rut}>
+                    {ej.nombre} {ej.perfil === 'ADMIN_OB' ? '(Admin OB)' : '(OB)'}
+                  </option>
+                ))}
+              </select>
+              {savingId === e.id && (
+                <span className="text-muted small d-flex align-items-center gap-1">
+                  <Loader2 size={14} /> Guardando…
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="container-fluid py-4">
-      {/* Header + botón Atrás */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <div className="d-flex align-items-center gap-2">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div className="d-flex align-items-center gap-3">
           <button className="btn btn-outline-secondary" onClick={() => navigate(-1)}>
-            <ArrowLeft size={16} className="me-1" />
-            Atrás
+            <ArrowLeft size={16} className="me-1" /> Atrás
           </button>
           <div>
             <h1 className="h4 mb-0 font-primary">📥 Bandeja de Solicitudes</h1>
             <p className="text-muted small mb-0">
-              Empresas que llegaron desde Comercial y aún no tienen ejecutivo asignado.
+              Empresas que llegaron desde Comercial y aún no tienen ejecutivo OB asignado.
             </p>
           </div>
         </div>
@@ -179,89 +242,60 @@ const OnboardingSolicitudesPendientes: React.FC = () => {
 
       {error && (
         <div className="alert alert-danger d-flex align-items-center gap-2">
-          <AlertCircle size={18} />
-          <span>{error}</span>
+          <AlertCircle size={18} /><span>{error}</span>
         </div>
       )}
 
       {loading ? (
         <div className="text-center py-5">
-          <Loader2 className="mb-2" size={32} />
+          <Loader2 className="mb-2 text-primary" size={32} />
           <p className="text-muted">Cargando solicitudes…</p>
         </div>
-      ) : empresas.length === 0 ? (
-        <div className="card">
-          <div className="card-body text-center py-5">
-            <Inbox size={48} className="text-muted mb-3" />
-            <h5 className="mb-2">No hay solicitudes pendientes</h5>
-            <p className="text-muted mb-0">
-              Cuando Comercial termine una ficha y la envíe a Onboarding, aparecerá aquí.
-            </p>
-          </div>
-        </div>
       ) : (
-        <div className="card">
-          <div className="card-body table-responsive">
-            <h5 className="mb-3 d-flex align-items-center gap-2">
-              <UserCheck size={18} />
-              Solicitudes pendientes por asignar
+        <>
+          {/* Sin ejecutivo asignado */}
+          <div className="mb-4">
+            <h5 className="fw-semibold mb-3 d-flex align-items-center gap-2">
+              <span className="badge bg-warning text-dark">Sin asignar</span>
+              <span className="text-muted small fw-normal">({sinAsignar.length})</span>
             </h5>
-
-            <table className="table align-middle">
-              <thead>
-                <tr>
-                  <th>Empkey</th>
-                  <th>RUT</th>
-                  <th>Razón Social</th>
-                  <th>Producto</th>
-                  <th>Estado</th>
-                  <th>Ejecutivo a asignar</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {empresas.map((e) => (
-                  <tr key={e.id}>
-                    <td>{e.empkey}</td>
-                    <td>{e.rut ?? '—'}</td>
-                    <td>{e.nombre ?? 'Sin nombre'}</td>
-                    <td>{e.producto ?? '—'}</td>
-                    <td>
-                      <span className="badge bg-warning text-dark">
-                        {ESTADO_LABEL[e.estado]}
-                      </span>
-                    </td>
-                    <td style={{ minWidth: 220 }}>
-                      <select
-                        className="form-select form-select-sm"
-                        defaultValue=""
-                        onChange={(ev) => handleAsignar(e, ev.target.value)}
-                      >
-                        <option value="">Seleccionar ejecutivo…</option>
-                        {ejecutivos.map((ej) => (
-                          <option key={ej.rut} value={ej.rut}>
-                            {ej.nombre} ({ej.rut})
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>
-                      {savingId === e.id && (
-                        <span className="text-muted small d-flex align-items-center gap-1">
-                          <Loader2 size={14} className="spin" />
-                          Asignando…
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {sinAsignar.length === 0 ? (
+              <div className="card">
+                <div className="card-body text-center py-4">
+                  <Inbox size={36} className="text-muted mb-2" />
+                  <p className="text-muted mb-0">No hay empresas pendientes de asignación.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="row g-3">
+                {sinAsignar.map(e => <EmpresaCard key={e.id} e={e} />)}
+              </div>
+            )}
           </div>
+
+          {/* Con ejecutivo — reasignables */}
+          {conAsignar.length > 0 && (
+            <div>
+              <h5 className="fw-semibold mb-3 d-flex align-items-center gap-2">
+                <span className="badge bg-info text-dark">Reasignar</span>
+                <span className="text-muted small fw-normal">({conAsignar.length})</span>
+              </h5>
+              <div className="row g-3">
+                {conAsignar.map(e => <EmpresaCard key={e.id} e={e} reasignar />)}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {!loading && ejecutivos.length === 0 && (sinAsignar.length > 0 || conAsignar.length > 0) && (
+        <div className="alert alert-warning mt-3">
+          No se encontraron ejecutivos con perfil OB o ADMIN_OB en la tabla <code>usuario</code>.
+          Verifica que los usuarios tengan el perfil correcto asignado.
         </div>
       )}
     </div>
   )
 }
 
-export default OnboardingSolicitudesPendientes
+export default OnboardingAsignarEjecutivos

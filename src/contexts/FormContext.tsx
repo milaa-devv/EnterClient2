@@ -18,12 +18,23 @@ const FormContext = createContext<FormContextType | undefined>(undefined)
 
 const DRAFT_KEY = 'nueva-empresa-draft'
 
-export const FormProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+interface FormProviderProps {
+  children: ReactNode
+  maxStep?: number        // ← configurable, default 9 para NuevaEmpresa
+  draftKey?: string      // ← clave de localStorage, default 'nueva-empresa-draft'
+  initialStep?: number   // ← paso inicial, default 0
+}
+
+export const FormProvider: React.FC<FormProviderProps> = ({
+  children,
+  maxStep = 9,
+  draftKey = DRAFT_KEY,
+  initialStep = 0,
+}) => {
   const [state, setState] = useState<FormState>(() => {
-    // Intentar cargar un borrador guardado
     if (typeof window !== 'undefined') {
       try {
-        const raw = window.localStorage.getItem(DRAFT_KEY)
+        const raw = window.localStorage.getItem(draftKey)
         if (raw) {
           const parsed = JSON.parse(raw) as { state?: FormState }
           if (parsed?.state) {
@@ -31,43 +42,66 @@ export const FormProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
         }
       } catch (err) {
-        console.error('Error leyendo borrador comercial al iniciar el formulario:', err)
+        console.error('Error leyendo borrador al iniciar el formulario:', err)
       }
     }
     return {
-      currentStep: 0,
+      currentStep: initialStep,
       data: {},
     }
   })
 
-  const MAX_STEP = 9 // 10 pasos: 0-9 (incluyendo Resumen)
-
   const updateData = (newData: any) => {
-    setState((prev) => ({
-      ...prev,
-      data: { ...prev.data, ...newData },
-    }))
+    setState((prev) => {
+      const next = {
+        ...prev,
+        data: { ...prev.data, ...newData },
+      }
+      // Persistir automáticamente en localStorage
+      try {
+        window.localStorage.setItem(draftKey, JSON.stringify({ state: next }))
+      } catch {}
+      return next
+    })
   }
 
   const nextStep = () => {
-    setState((prev) => ({
-      ...prev,
-      currentStep: Math.min(prev.currentStep + 1, MAX_STEP),
-    }))
+    setState((prev) => {
+      const next = {
+        ...prev,
+        currentStep: Math.min(prev.currentStep + 1, maxStep),
+      }
+      try {
+        window.localStorage.setItem(draftKey, JSON.stringify({ state: next }))
+      } catch {}
+      return next
+    })
   }
 
   const prevStep = () => {
-    setState((prev) => ({
-      ...prev,
-      currentStep: Math.max(prev.currentStep - 1, 0),
-    }))
+    setState((prev) => {
+      const next = {
+        ...prev,
+        currentStep: Math.max(prev.currentStep - 1, 0),
+      }
+      try {
+        window.localStorage.setItem(draftKey, JSON.stringify({ state: next }))
+      } catch {}
+      return next
+    })
   }
 
   const setCurrentStep = (step: number) => {
-    setState((prev) => ({
-      ...prev,
-      currentStep: Math.max(0, Math.min(step, MAX_STEP)),
-    }))
+    setState((prev) => {
+      const next = {
+        ...prev,
+        currentStep: Math.max(0, Math.min(step, maxStep)),
+      }
+      try {
+        window.localStorage.setItem(draftKey, JSON.stringify({ state: next }))
+      } catch {}
+      return next
+    })
   }
 
   return (
@@ -84,5 +118,3 @@ export const useFormContext = (): FormContextType => {
   }
   return context
 }
-
-

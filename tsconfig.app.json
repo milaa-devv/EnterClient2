@@ -18,6 +18,7 @@
     "jsx": "react-jsx",
 
     /* New additions for alias */
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]

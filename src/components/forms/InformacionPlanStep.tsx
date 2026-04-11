@@ -699,14 +699,15 @@ export const InformacionPlanStep: React.FC = () => {
     }
 
     return {
-      productos: {
+     productos: {
         TAX: !!persisted.productos.TAX,
         POS: !!persisted.productos.POS,
         POS_BOX: !!persisted.productos.POS_BOX,
         LCE: !!persisted.productos.LCE
       },
       selections: persisted.selections ?? {},
-      total: typeof persisted.total === 'number' ? persisted.total : 0
+      total: typeof persisted.total === 'number' ? persisted.total : 0,
+      notasTecnicas: persisted.notasTecnicas ?? {}
     }
   })
 
@@ -1388,6 +1389,122 @@ export const InformacionPlanStep: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Notas Técnicas Comercial → OB */}
+      <div className="card border-warning mt-4">
+        <div className="card-header bg-warning bg-opacity-10 d-flex align-items-center gap-2">
+          <span className="fw-semibold">📋 Notas Técnicas para Onboarding</span>
+          <span className="badge bg-warning text-dark fw-normal small">Referencial — puede cambiar en sesiones OB</span>
+        </div>
+        <div className="card-body">
+          <p className="text-muted small mb-3">
+            Indica los requerimientos técnicos que levantó Comercial. El equipo de OB los verá como referencia,
+            pero estos pueden ajustarse durante la implementación.
+          </p>
+          <div className="row g-3">
+            {/* Tipo de Integración */}
+            <div className="col-md-6">
+              <label className="form-label fw-semibold small">Tipo de Integración</label>
+              <div className="d-flex flex-column gap-1">
+                {['No Aplica', 'Transferencia de Archivos', 'Web Service REST', 'Web Service SOAP', 'Batch'].map(op => (
+                  <div className="form-check" key={op}>
+                    <input
+                      className="form-check-input" type="checkbox" id={`integ-${op}`}
+                      checked={((info.notasTecnicas as any)?.integracion ?? []).includes(op)}
+                      onChange={e => {
+                        const curr: string[] = (info.notasTecnicas as any)?.integracion ?? []
+                        const next = e.target.checked ? [...curr, op] : curr.filter((x: string) => x !== op)
+                        const updated = { ...info, notasTecnicas: { ...(info.notasTecnicas as any), integracion: next } }
+                        setInfo(updated as MultiInfo)
+                        updateData({ informacionPlan: updated })
+                      }}
+                    />
+                    <label className="form-check-label small" htmlFor={`integ-${op}`}>{op}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Impresora */}
+            <div className="col-md-6">
+              <label className="form-label fw-semibold small">Tipo de Impresora</label>
+              <div className="d-flex flex-column gap-1">
+                {['Térmica en RED', 'Térmica en USB', 'Láser', 'Sin impresora'].map(op => (
+                  <div className="form-check" key={op}>
+                    <input
+                      className="form-check-input" type="radio" name="impresora" id={`imp-${op}`}
+                      checked={((info.notasTecnicas as any)?.impresora ?? '') === op}
+                      onChange={() => {
+                        const updated = { ...info, notasTecnicas: { ...(info.notasTecnicas as any), impresora: op } }
+                        setInfo(updated as MultiInfo)
+                        updateData({ informacionPlan: updated })
+                      }}
+                    />
+                    <label className="form-check-label small" htmlFor={`imp-${op}`}>{op}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tipo de Firma */}
+            <div className="col-md-6">
+              <label className="form-label fw-semibold small">Tipo de Firma</label>
+              <div className="d-flex gap-3">
+                {['Automática', 'Controlada'].map(op => (
+                  <div className="form-check" key={op}>
+                    <input
+                      className="form-check-input" type="radio" name="firma" id={`firma-${op}`}
+                      checked={((info.notasTecnicas as any)?.firma ?? '') === op}
+                      onChange={() => {
+                        const updated = { ...info, notasTecnicas: { ...(info.notasTecnicas as any), firma: op } }
+                        setInfo(updated as MultiInfo)
+                        updateData({ informacionPlan: updated })
+                      }}
+                    />
+                    <label className="form-check-label small" htmlFor={`firma-${op}`}>{op}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Foliación */}
+            <div className="col-md-6">
+              <label className="form-label fw-semibold small">Foliación de Documentos</label>
+              <div className="d-flex gap-3">
+                {['Enternet', 'Cliente'].map(op => (
+                  <div className="form-check" key={op}>
+                    <input
+                      className="form-check-input" type="radio" name="foliacion" id={`fol-${op}`}
+                      checked={((info.notasTecnicas as any)?.foliacion ?? '') === op}
+                      onChange={() => {
+                        const updated = { ...info, notasTecnicas: { ...(info.notasTecnicas as any), foliacion: op } }
+                        setInfo(updated as MultiInfo)
+                        updateData({ informacionPlan: updated })
+                      }}
+                    />
+                    <label className="form-check-label small" htmlFor={`fol-${op}`}>{op}</label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Observaciones generales */}
+            <div className="col-12">
+              <label className="form-label fw-semibold small">Observaciones adicionales</label>
+              <textarea
+                className="form-control"
+                rows={3}
+                placeholder="Cualquier detalle técnico adicional que deba saber el equipo de Onboarding..."
+                value={(info.notasTecnicas as any)?.observaciones ?? ''}
+                onChange={e => {
+                  const updated = { ...info, notasTecnicas: { ...(info.notasTecnicas as any), observaciones: e.target.value } }
+                  setInfo(updated as MultiInfo)
+                  updateData({ informacionPlan: updated })
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Info importante */}
       <div className="alert alert-info mt-4">

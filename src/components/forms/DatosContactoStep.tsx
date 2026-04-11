@@ -18,13 +18,10 @@ export const DatosContactoStep: React.FC = () => {
   const formatPhone = (value: string) => {
     const cleanValue = value.replace(/[^0-9]/g, '')
     if (cleanValue.startsWith('56')) {
-      // Ya tiene código país
       return cleanValue.replace(/(\d{2})(\d{1})(\d{8})/, '+$1 $2 $3')
     } else if (cleanValue.startsWith('9') && cleanValue.length === 9) {
-      // Móvil sin código país
       return `+56 ${cleanValue}`
     } else if (cleanValue.length === 9) {
-      // Teléfono fijo
       return `+56 ${cleanValue.slice(0, 1)} ${cleanValue.slice(1)}`
     }
     return value
@@ -41,7 +38,7 @@ export const DatosContactoStep: React.FC = () => {
 
       <div className="row g-4">
         {/* Domicilio */}
-        <div className="col-12">
+        <div className="col-md-8">
           <label className="form-label required">Domicilio Legal</label>
           <div className="input-group">
             <span className="input-group-text">
@@ -50,14 +47,31 @@ export const DatosContactoStep: React.FC = () => {
             <textarea
               className="form-control"
               rows={3}
-              placeholder="Dirección completa incluyendo comuna y región"
+              placeholder="Dirección completa"
               value={datosContacto.domicilio || ''}
               onChange={(e) => handleInputChange('domicilio', e.target.value)}
               required
             />
           </div>
           <div className="form-text">
-            Ej: Av. Providencia 1234, Oficina 567, Providencia, Región Metropolitana
+            Ej: Av. Providencia 1234, Oficina 567
+          </div>
+        </div>
+
+        {/* Comuna */}
+        <div className="col-md-4">
+          <label className="form-label">Comuna</label>
+          <div className="input-group">
+            <span className="input-group-text">
+              <MapPin size={18} />
+            </span>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Ej: Providencia"
+              value={datosContacto.comuna || ''}
+              onChange={(e) => handleInputChange('comuna', e.target.value)}
+            />
           </div>
         </div>
 

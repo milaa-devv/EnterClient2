@@ -63,8 +63,8 @@ const OnboardingDashboard: React.FC = () => {
 
     const sinAsignar = isAdminOb
       ? empresas.filter(
-          (e: any) => !e.empresa_onboarding || !e.empresa_onboarding.encargado_name
-        ).length
+        (e: any) => !e.empresa_onboarding || !e.empresa_onboarding.encargado_name
+      ).length
       : 0
 
     return { pendientes: pend, enProceso: proc, completadas: comp, sinAsignar }
@@ -86,9 +86,8 @@ const OnboardingDashboard: React.FC = () => {
   const renderProgressBar = (p: number) => (
     <div className="progress" style={{ height: 6 }}>
       <div
-        className={`progress-bar ${
-          p === 100 ? 'bg-success' : p === 0 ? 'bg-secondary' : 'bg-info'
-        }`}
+        className={`progress-bar ${p === 100 ? 'bg-success' : p === 0 ? 'bg-secondary' : 'bg-info'
+          }`}
         role="progressbar"
         style={{ width: `${p}%` }}
         aria-valuenow={p}
@@ -256,7 +255,14 @@ const OnboardingDashboard: React.FC = () => {
                           <tr key={e.empkey}>
                             <td>{e.rut ? formatRut(e.rut) : '—'}</td>
                             <td>{e.nombre || e.nombre_fantasia || 'Sin nombre'}</td>
-                            <td>{(e as any).estado === 'COMPLETADA' ? 'ENTERFACT' : '—'}</td>
+                            <td>
+                              {(e as any).producto === 'ANDESPOS'
+                                ? <span className="badge bg-info bg-opacity-10 text-info fw-normal">AndesPOS</span>
+                                : (e as any).producto === 'ENTERFAC'
+                                  ? <span className="badge bg-primary bg-opacity-10 text-primary fw-normal">Enternet</span>
+                                  : <span className="text-muted">—</span>
+                              }
+                            </td>
                             <td>
                               <div className="d-flex flex-column">
                                 <div className="d-flex justify-content-between mb-1">

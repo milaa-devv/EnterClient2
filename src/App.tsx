@@ -6,7 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Login from './pages/LoginPage'
 import EmpresaDetail from './pages/EmpresaDetail'
 import NuevaEmpresa from './pages/areas/NuevaEmpresa'
-import ConfiguracionEmpresaForm from './pages/areas/ConfiguracionEmpresaForm'
+import ConfiguracionEmpresaFormWrapper from './pages/areas/ConfiguracionEmpresaFormWrapper'
 import OnboardingSolicitudesNuevas from './pages/areas/OnboardingSolicitudesNuevas'
 import PasoProduccion from '@/pages/onboarding/PasoProduccion'
 import PasoProduccionListado from '@/pages/onboarding/PasoProduccionListado'
@@ -21,6 +21,8 @@ import SacDashboard from '@/pages/areas/SacDashboard'
 import ComercialEmpresasProceso from '@/pages/areas/ComercialEmpresasProceso'
 import ComercialHistorial from '@/pages/areas/ComercialHistorial'
 import ComercialNotificaciones from '@/pages/areas/ComercialNotificaciones'
+import ComercialPreIngresos from '@/pages/areas/ComercialPreIngresos'
+import ComercialPreIngresoFormulario from '@/pages/areas/ComercialPreIngresoFormulario'
 
 // Panel asignar ejecutivos OB
 import OnboardingAsignarEjecutivos from '@/pages/areas/OnboardingAsignarEjecutivos'
@@ -78,6 +80,8 @@ const App = () => {
         <Route path="/comercial/empresas-proceso" element={<ComercialEmpresasProceso />} />
         <Route path="/comercial/historial" element={<ComercialHistorial />} />
         <Route path="/comercial/notificaciones" element={<ComercialNotificaciones />} />
+        <Route path="/comercial/pre-ingresos" element={<ComercialPreIngresos />} />
+        <Route path="/comercial/pre-ingreso/:id" element={<ComercialPreIngresoFormulario />} />
 
         {/* Onboarding */}
         <Route path="/onboarding/mis-empresas" element={<OnboardingDashboard />} />
@@ -106,7 +110,7 @@ const App = () => {
         {/* Otros */}
         <Route
           path="/configuracion-empresa/:empkey?"
-          element={<ConfiguracionEmpresaForm onSave={() => { }} />}
+          element={<ConfiguracionEmpresaFormWrapper />}
         />
         <Route path="/crear-sac" element={<PapForm />} />
 

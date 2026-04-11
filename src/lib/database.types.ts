@@ -1458,34 +1458,61 @@ export type Database = {
       }
       pre_ingresos: {
         Row: {
+          archivos_hs: Json | null
           contacto: string | null
+          contacto_principal: Json | null
+          contrapartes_xlsx: Json | null
           created_at: string | null
           datos_json: Json | null
           estado: string | null
+          hs_contact_id: string | null
           id: number
           nombre_empresa: string | null
+          notificaciones_xlsx: Json | null
           origen: string | null
+          procesado_at: string | null
+          producto: string | null
+          representante: Json | null
           rut: string | null
+          usuarios_xlsx: Json | null
         }
         Insert: {
+          archivos_hs?: Json | null
           contacto?: string | null
+          contacto_principal?: Json | null
+          contrapartes_xlsx?: Json | null
           created_at?: string | null
           datos_json?: Json | null
           estado?: string | null
+          hs_contact_id?: string | null
           id?: number
           nombre_empresa?: string | null
+          notificaciones_xlsx?: Json | null
           origen?: string | null
+          procesado_at?: string | null
+          producto?: string | null
+          representante?: Json | null
           rut?: string | null
+          usuarios_xlsx?: Json | null
         }
         Update: {
+          archivos_hs?: Json | null
           contacto?: string | null
+          contacto_principal?: Json | null
+          contrapartes_xlsx?: Json | null
           created_at?: string | null
           datos_json?: Json | null
           estado?: string | null
+          hs_contact_id?: string | null
           id?: number
           nombre_empresa?: string | null
+          notificaciones_xlsx?: Json | null
           origen?: string | null
+          procesado_at?: string | null
+          producto?: string | null
+          representante?: Json | null
           rut?: string | null
+          usuarios_xlsx?: Json | null
         }
         Relationships: []
       }
