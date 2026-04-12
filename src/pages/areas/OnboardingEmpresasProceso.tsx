@@ -49,7 +49,7 @@ const PROGRESO_COLOR: Record<OnboardingEstado, string> = {
 function formatProducto(producto: string | null): { label: string; className: string } {
   if (!producto) return { label: '—', className: '' }
   if (producto === 'ANDESPOS') return { label: 'AndesPOS', className: 'bg-info bg-opacity-10 text-info' }
-  if (producto === 'ENTERFAC') return { label: 'Enternet', className: 'bg-primary bg-opacity-10 text-primary' }
+  if (producto === 'ENTERFAC') return { label: 'Enternet', className: 'bg-success bg-opacity-10 text-success' }
   return { label: producto, className: 'bg-secondary bg-opacity-10 text-secondary' }
 }
 

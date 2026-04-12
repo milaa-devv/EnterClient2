@@ -3,6 +3,7 @@ import React, {
   useMemo, useRef, useState
 } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { usePermissions } from "@/hooks/useAuth";
 
 /* ================= Tipos ================= */
 type StepKey =
@@ -55,9 +56,28 @@ const DTE_CATALOGO: Record<GrupoDte, { id: DteKey; nombre: string }[]> = {
 };
 
 const LAYOUTS_ENTERFACT = [
-  { key: "Layout 1", nombre: "Layout 1", url: "" },
-  { key: "Layout 2", nombre: "Layout 2", url: "" },
-  { key: "Layout 3", nombre: "Layout 3", url: "" },
+  { key: "Layout 1", nombre: "Layout 1" },
+  { key: "Layout 2", nombre: "Layout 2" },
+  { key: "Layout 3", nombre: "Layout 3" },
+  { key: "Layout 4", nombre: "Layout 4" },
+  { key: "Layout 5", nombre: "Layout 5" },
+  { key: "Layout 6", nombre: "Layout 6 (Panadería)" },
+  { key: "Layout 7", nombre: "Layout 7 (Constructora)" },
+  { key: "Layout 8", nombre: "Layout 8 (Impuesto Específicos)" },
+  { key: "Layout 9", nombre: "Layout 9 (Bencinera)" },
+] as const;
+
+const LAYOUTS_TERMICOS = [
+  { key: "TXTPLANOCtdxPrecioMultiple.xsl", nombre: "TXTPLANOCtdxPrecioMultiple.xsl" },
+  { key: "TXTPLANOBoleta20200122.xsl", nombre: "TXTPLANOBoleta20200122.xsl" },
+  { key: "TXTPLANOCompacto20200210.xsl", nombre: "TXTPLANOCompacto20200210.xsl" },
+  { key: "TXTPLANO_CodNom-PreCantDescTotal.xsl", nombre: "TXTPLANO_CodNom-PreCantDescTotal.xsl" },
+  { key: "TXTPLANO_Cod-NomPreCantDescTotal.xsl", nombre: "TXTPLANO_Cod-NomPreCantDescTotal.xsl" },
+  { key: "TXTPLANO_CodPreCantDesc-NomTotal.xsl", nombre: "TXTPLANO_CodPreCantDesc-NomTotal.xsl" },
+  { key: "TXTPLANO_CodNom-PreCantDescTotal_Oculta1.xsl", nombre: "TXTPLANO_CodNom-PreCantDescTotal_Oculta1.xsl" },
+  { key: "TXTPLANO_Nom-CodPreCantDescTotal.xsl", nombre: "TXTPLANO_Nom-CodPreCantDescTotal.xsl" },
+  { key: "TXTPLANO_NomTotal-CodPreCantDescTotal.xsl", nombre: "TXTPLANO_NomTotal-CodPreCantDescTotal.xsl" },
+  { key: "TXTPLANO_NomTotal-CodPreCant-Desc.xsl", nombre: "TXTPLANO_NomTotal-CodPreCant-Desc.xsl" },
 ] as const;
 
 /** Modalidades emisión */
@@ -161,17 +181,17 @@ function TabsContent({ value, children }: { value: string; children: React.React
 
 /* ===== Validadores ===== */
 const onlyDigits = (s: string) => s.replace(/\D+/g, "");
-const onlyAlnum = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "");
-const isPdf = (file: File) => !!file && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
+const onlyAlnum = (s: string) => s.replace(/[^a-zA-Z0-9=+/_.@!#$%&*\-]/g, "");
 const isCsv = (file: File) => !!file && (file.type.includes("csv") || /\.csv$/i.test(file.name));
 const isValidUrl = (u: string) => { try { new URL(u); return true; } catch { return false; } };
 /* ================= Form principal ================= */
-type Props = { empresa?: any; onSave: (data: any) => void };
+type Props = { empresa?: any; onSave: (data: any) => void; docComercial?: { logoNombre?: string | null; vbNombre?: string | null } };
 
-export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
+export default function ConfiguracionEmpresaForm({ empresa, onSave, docComercial }: Props) {
   useParams();
   const [search, setSearch] = useSearchParams();
   const navigate = useNavigate();
+  const { isOnboardingAdmin } = usePermissions();
 
   /* === Estados === */
   const empresaProducts: ProductoKey[] =
@@ -186,6 +206,7 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
     empkey: "", replica_password: "", pass: "", casilla_intercambio: "",
     url_visto_bueno: null as File | null, url_membrete: "",
     layout: "ESTANDAR", layout_key: "", url_layout_selected: "", url_layout_custom: "",
+    layout_termico: "ESTANDAR", layout_termico_key: "", url_layout_termico_selected: "", url_layout_termico_custom: "",
     dte_habilitados: [] as DteKey[],
     // Integración (ahora por documento en Documentos&Layout)
     tipo_texto: "", parser: "",
@@ -285,9 +306,25 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [andesGeneral]);
 
-  /** Visto Bueno (solo PDF) */
+  /** Visto Bueno (solo PDF — lo sube OB) */
+  const isPdf = (file: File) => !!file && (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
   const [filePreview, setFilePreview] = useState<string>("");
   const [fileError, setFileError] = useState<string>("");
+
+  const handleVistoBueno = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!isPdf(file)) {
+      setFileError("Solo se permite PDF.");
+      setEnterfac((p: any) => ({ ...p, url_visto_bueno: null }));
+      setFilePreview("");
+      return;
+    }
+    setFileError("");
+    const url = URL.createObjectURL(file);
+    setFilePreview(url);
+    setEnterfac((p: any) => ({ ...p, url_visto_bueno: file }));
+  };
 
   /** LCE — archivos CSV */
   const [lce, setLce] = useState<{
@@ -377,22 +414,6 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
     });
   };
 
-  /* === Handlers === */
-  const handleVistoBueno = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!isPdf(file)) {
-      setFileError("Solo se permite PDF.");
-      setEnterfac((p: any) => ({ ...p, url_visto_bueno: null }));
-      setFilePreview("");
-      return;
-    }
-    setFileError("");
-    const url = URL.createObjectURL(file);
-    setFilePreview(url);
-    setEnterfac((p: any) => ({ ...p, url_visto_bueno: file }));
-  };
-
   /* === Guardar === */
   const buildPayload = () => ({
     productos,
@@ -403,6 +424,10 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
       layout_key: enterfac.layout_key,
       url_layout_selected: enterfac.url_layout_selected,
       url_layout_custom: enterfac.url_layout_custom,
+      layout_termico: enterfac.layout_termico,
+      layout_termico_key: enterfac.layout_termico_key,
+      url_layout_termico_selected: enterfac.url_layout_termico_selected,
+      url_layout_termico_custom: enterfac.url_layout_termico_custom,
       modalidades: {
         general: enterfacGeneral || null,
         porDocumento: enterfacPorDoc,
@@ -463,9 +488,11 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
     }
     const payload = buildPayload();
     onSave?.(payload);
-    if (empresa?.empkey) navigate(`/empresa/${empresa.empkey}`);
+    if (empresa?.empkey) navigate(dashboardPath);
     else alert("Configuración guardada (ver payload en onSave).");
   };
+
+  const dashboardPath = isOnboardingAdmin() ? '/onboarding/admin-dashboard' : '/onboarding/mis-empresas';
 
   const guardarYSeguir = () => {
     onSave?.(buildPayload());
@@ -474,7 +501,7 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
 
   const guardarYSalir = () => {
     onSave?.(buildPayload());
-    navigate('/onboarding/mis-empresas');
+    navigate(dashboardPath);
   };
   /* === Render Productos === */
   const renderProductos = () => (
@@ -613,7 +640,7 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
           <div className="border rounded p-3 mb-3">
             <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>ENTERFACT</h6>
             <div className="row g-3">
-              {/* Visto Bueno (solo PDF) */}
+              {/* Visto Bueno — lo sube OB */}
               <div className="col-md-6">
                 <FieldLabel>Archivo Visto Bueno (solo PDF)</FieldLabel>
                 <input type="file" accept="application/pdf,.pdf" className="form-control" onChange={handleVistoBueno} />
@@ -625,63 +652,128 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave }: Props) {
                 )}
               </div>
 
+              {/* Logo / Membrete — viene de Comercial */}
               <div className="col-md-6">
-                <FieldLabel>URL Membrete</FieldLabel>
-                <input className="form-control" placeholder="https://..." type="url"
-                  value={enterfac.url_membrete}
-                  onChange={e => setEnterfac((p: any) => ({ ...p, url_membrete: e.target.value }))} />
-              </div>
-
-              {/* Layout Enterfact */}
-              <div className="col-12 mt-2">
-                <FieldLabel>Tipo de Layout</FieldLabel>
-                <div className="d-flex gap-3">
-                  <div className="form-check">
-                    <input className="form-check-input" type="radio" id="ly-est"
-                      checked={enterfac.layout === "ESTANDAR"}
-                      onChange={() => setEnterfac((p: any) => ({ ...p, layout: "ESTANDAR", url_layout_custom: "" }))} />
-                    <label className="form-check-label" htmlFor="ly-est">Estandar</label>
-                  </div>
-                  <div className="form-check">
-                    <input className="form-check-input" type="radio" id="ly-cus"
-                      checked={enterfac.layout === "CUSTOM"}
-                      onChange={() => setEnterfac((p: any) => ({ ...p, layout: "CUSTOM", layout_key: "", url_layout_selected: "" }))} />
-                    <label className="form-check-label" htmlFor="ly-cus">Custom</label>
-                  </div>
+                <FieldLabel>Logo / Membrete</FieldLabel>
+                <div className={`border rounded p-3 d-flex align-items-center gap-2 ${docComercial?.logoNombre ? 'border-success bg-success bg-opacity-10' : 'border-warning bg-warning bg-opacity-10'}`}>
+                  {docComercial?.logoNombre ? (
+                    <>
+                      <span className="text-success fw-semibold">✅ Enviado desde Comercial</span>
+                      <span className="text-muted small ms-auto">{docComercial.logoNombre}</span>
+                    </>
+                  ) : (
+                    <span className="text-warning fw-semibold">⏳ Pendiente — No enviado por Comercial</span>
+                  )}
                 </div>
               </div>
 
-              {enterfac.layout === "ESTANDAR" && (
-                <>
-                  <div className="col-md-6">
-                    <FieldLabel>Seleccionar Layout</FieldLabel>
-                    <select className="form-select" value={enterfac.layout_key}
-                      onChange={e => {
-                        const key = e.target.value;
-                        const found = LAYOUTS_ENTERFACT.find(l => l.key === key);
-                        setEnterfac((p: any) => ({ ...p, layout_key: key, url_layout_selected: found?.url ?? "" }));
-                      }}>
-                      <option value="">Seleccione layout...</option>
-                      {LAYOUTS_ENTERFACT.map(l => <option key={l.key} value={l.key}>{l.nombre}</option>)}
-                    </select>
+              {/* ── Layout Enterfact ── */}
+              <div className="col-12 mt-3">
+                <div className="border rounded p-3">
+                  <h6 className="fw-semibold mb-3">Layout</h6>
+                  <div className="d-flex gap-3 mb-3">
+                    <div className="form-check">
+                      <input className="form-check-input" type="radio" id="ly-est"
+                        checked={enterfac.layout === "ESTANDAR"}
+                        onChange={() => setEnterfac((p: any) => ({ ...p, layout: "ESTANDAR", url_layout_custom: "" }))} />
+                      <label className="form-check-label" htmlFor="ly-est">Estándar</label>
+                    </div>
+                    <div className="form-check">
+                      <input className="form-check-input" type="radio" id="ly-cus"
+                        checked={enterfac.layout === "CUSTOM"}
+                        onChange={() => setEnterfac((p: any) => ({ ...p, layout: "CUSTOM", layout_key: "", url_layout_selected: "" }))} />
+                      <label className="form-check-label" htmlFor="ly-cus">Custom</label>
+                    </div>
                   </div>
-                  <div className="col-md-6">
-                    <FieldLabel>URL del layout seleccionado</FieldLabel>
-                    <input className="form-control" placeholder="https://..." type="url"
-                      value={enterfac.url_layout_selected}
-                      onChange={e => setEnterfac((p: any) => ({ ...p, url_layout_selected: e.target.value }))} />
-                  </div>
-                </>
-              )}
 
-              {enterfac.layout === "CUSTOM" && (
-                <div className="col-md-12">
-                  <FieldLabel>URL del Layout personalizado</FieldLabel>
-                  <input className="form-control" placeholder="https://..." type="url"
-                    value={enterfac.url_layout_custom}
-                    onChange={e => setEnterfac((p: any) => ({ ...p, url_layout_custom: e.target.value }))} />
+                  {enterfac.layout === "ESTANDAR" && (
+                    <div className="row g-3">
+                      <div className="col-md-6">
+                        <FieldLabel>Seleccionar Layout</FieldLabel>
+                        <select className="form-select" value={enterfac.layout_key}
+                          onChange={e => {
+                            const key = e.target.value;
+                            setEnterfac((p: any) => ({ ...p, layout_key: key, url_layout_selected: "" }));
+                          }}>
+                          <option value="">Seleccione layout...</option>
+                          {LAYOUTS_ENTERFACT.map(l => <option key={l.key} value={l.key}>{l.nombre}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-md-6">
+                        <FieldLabel>URL del layout seleccionado</FieldLabel>
+                        <input className="form-control" placeholder="https://..." type="url"
+                          value={enterfac.url_layout_selected}
+                          onChange={e => setEnterfac((p: any) => ({ ...p, url_layout_selected: e.target.value }))} />
+                      </div>
+                    </div>
+                  )}
+
+                  {enterfac.layout === "CUSTOM" && (
+                    <div className="row g-3">
+                      <div className="col-md-12">
+                        <FieldLabel>URL del Layout personalizado</FieldLabel>
+                        <input className="form-control" placeholder="https://..." type="url"
+                          value={enterfac.url_layout_custom}
+                          onChange={e => setEnterfac((p: any) => ({ ...p, url_layout_custom: e.target.value }))} />
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+
+              {/* ── Layout Térmico ── */}
+              <div className="col-12 mt-3">
+                <div className="border rounded p-3">
+                  <h6 className="fw-semibold mb-3">Layout Térmico</h6>
+                  <div className="d-flex gap-3 mb-3">
+                    <div className="form-check">
+                      <input className="form-check-input" type="radio" id="lyt-est"
+                        checked={enterfac.layout_termico === "ESTANDAR"}
+                        onChange={() => setEnterfac((p: any) => ({ ...p, layout_termico: "ESTANDAR", url_layout_termico_custom: "" }))} />
+                      <label className="form-check-label" htmlFor="lyt-est">Estándar</label>
+                    </div>
+                    <div className="form-check">
+                      <input className="form-check-input" type="radio" id="lyt-cus"
+                        checked={enterfac.layout_termico === "CUSTOM"}
+                        onChange={() => setEnterfac((p: any) => ({ ...p, layout_termico: "CUSTOM", layout_termico_key: "", url_layout_termico_selected: "" }))} />
+                      <label className="form-check-label" htmlFor="lyt-cus">Custom</label>
+                    </div>
+                  </div>
+
+                  {enterfac.layout_termico === "ESTANDAR" && (
+                    <div className="row g-3">
+                      <div className="col-md-6">
+                        <FieldLabel>Seleccionar Layout Térmico</FieldLabel>
+                        <select className="form-select" value={enterfac.layout_termico_key}
+                          onChange={e => {
+                            const key = e.target.value;
+                            setEnterfac((p: any) => ({ ...p, layout_termico_key: key, url_layout_termico_selected: "" }));
+                          }}>
+                          <option value="">Seleccione layout térmico...</option>
+                          {LAYOUTS_TERMICOS.map(l => <option key={l.key} value={l.key}>{l.nombre}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-md-6">
+                        <FieldLabel>URL del layout térmico seleccionado</FieldLabel>
+                        <input className="form-control" placeholder="https://..." type="url"
+                          value={enterfac.url_layout_termico_selected}
+                          onChange={e => setEnterfac((p: any) => ({ ...p, url_layout_termico_selected: e.target.value }))} />
+                      </div>
+                    </div>
+                  )}
+
+                  {enterfac.layout_termico === "CUSTOM" && (
+                    <div className="row g-3">
+                      <div className="col-md-12">
+                        <FieldLabel>URL del Layout Térmico personalizado</FieldLabel>
+                        <input className="form-control" placeholder="https://..." type="url"
+                          value={enterfac.url_layout_termico_custom}
+                          onChange={e => setEnterfac((p: any) => ({ ...p, url_layout_termico_custom: e.target.value }))} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* DTE Habilitados – Nacionales */}
               <div className="col-12 mt-3">
@@ -1395,7 +1487,7 @@ function renderResumen() {
               <div className="col-md-6"><strong>Casilla de intercambio:</strong> {fmt(enterfac.casilla_intercambio)}</div>
 
               <div className="col-md-6"><strong>Archivo Visto Bueno:</strong> {enterfac.url_visto_bueno?.name ? enterfac.url_visto_bueno.name : dash}</div>
-              <div className="col-md-6"><strong>URL Membrete:</strong> {fmt(enterfac.url_membrete)}</div>
+              <div className="col-md-6"><strong>Logo / Membrete:</strong> {docComercial?.logoNombre ? `✅ ${docComercial.logoNombre}` : '⏳ Pendiente'}</div>
               <div className="col-md-4"><strong>Layout:</strong> {fmt(enterfac.layout)}</div>
               {enterfac.layout === "ESTANDAR" && (
                 <>
@@ -1405,6 +1497,17 @@ function renderResumen() {
               )}
               {enterfac.layout === "CUSTOM" && (
                 <div className="col-md-8"><strong>URL Layout Custom:</strong> {fmt(enterfac.url_layout_custom)}</div>
+              )}
+
+              <div className="col-md-4"><strong>Layout Térmico:</strong> {fmt(enterfac.layout_termico)}</div>
+              {enterfac.layout_termico === "ESTANDAR" && (
+                <>
+                  <div className="col-md-4"><strong>Layout Térmico Key:</strong> {fmt(enterfac.layout_termico_key)}</div>
+                  <div className="col-md-4"><strong>URL Layout Térmico:</strong> {fmt(enterfac.url_layout_termico_selected)}</div>
+                </>
+              )}
+              {enterfac.layout_termico === "CUSTOM" && (
+                <div className="col-md-8"><strong>URL Layout Térmico Custom:</strong> {fmt(enterfac.url_layout_termico_custom)}</div>
               )}
 
               <div className="col-12 mt-2">

@@ -1,5 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { BackButton } from "@/components/BackButton";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { Loader2, Send, Save, CheckCircle2, AlertTriangle } from "lucide-react";
 
 /** URL /exec del Web App de Apps Script */
 const APPS_SCRIPT_URL =
@@ -82,30 +86,59 @@ function postJsonToHiddenIframe(actionUrl: string, payload: Record<string, any>)
   }, 5000);
 }
 
+/* ---- Catálogo de DTEs ---- */
+const ALL_DTES: { id: string; nombre: string }[] = [
+  { id: "33", nombre: "Factura Afecta (33)" },
+  { id: "34", nombre: "Factura Exenta (34)" },
+  { id: "39", nombre: "Boleta Afecta (39)" },
+  { id: "41", nombre: "Boleta Exenta (41)" },
+  { id: "46", nombre: "Factura de Compra (46)" },
+  { id: "52", nombre: "Guía de Despacho (52)" },
+  { id: "56", nombre: "Nota de Débito (56)" },
+  { id: "61", nombre: "Nota de Crédito (61)" },
+  { id: "43", nombre: "Liquidación de Factura (43)" },
+];
+
+function productoLabel(p?: string | null): "Enterfact" | "AndesPOS" | "—" {
+  if (p === "ENTERFAC") return "Enterfact";
+  if (p === "ANDESPOS") return "AndesPOS";
+  return "—";
+}
+
 /* ===================== Componente ====================== */
 export default function PasoProduccion() {
+  const [searchParams] = useSearchParams();
+  const { profile } = useAuth();
+
+  const empkeyParam = searchParams.get("empkey");
+  const empkey = Number(empkeyParam);
+
+  /* ==== Estado de carga ==== */
+  const [loadingDB, setLoadingDB] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [yaEnviadoASac, setYaEnviadoASac] = useState(false);
+  const [papSolicitudId, setPapSolicitudId] = useState<number | null>(null);
+
   /* ==== Estado base ==== */
   const [fechaHora, setFechaHora] = useState<string>("");
 
-  const [empresa] = useState<Empresa>({
-    razonSocial: "—", // traer desde OB
-    rut: "—", // traer desde OB
-    tipoIntegracion: "—", // traer desde OB
-    plataforma: "Enterfact",
+  const [empresa, setEmpresa] = useState<Empresa>({
+    razonSocial: "—",
+    rut: "—",
+    tipoIntegracion: "—",
+    plataforma: "—",
   });
 
   const [ticketHS, setTicketHS] = useState<string>("");
+  const [tipoCertificacion, setTipoCertificacion] = useState<string>("");
+  const [casillaIntercambio, setCasillaIntercambio] = useState<string>("");
 
-  const [documentos] = useState<DocumentoDTE[]>([
-    { id: "33", nombre: "Factura Afecta (33)", seleccionado: true },
-    { id: "34", nombre: "Factura Exenta (34)", seleccionado: false },
-    { id: "39", nombre: "Boleta Afecta (39)", seleccionado: true },
-    { id: "41", nombre: "Boleta Exenta (41)", seleccionado: false },
-    { id: "52", nombre: "Guía de Despacho (52)", seleccionado: false },
-    { id: "56", nombre: "Nota de Débito (56)", seleccionado: false },
-    { id: "61", nombre: "Nota de Crédito (61)", seleccionado: true },
-    { id: "43", nombre: "Liquidación de Factura (43)", seleccionado: false },
-  ]);
+  const [documentos, setDocumentos] = useState<DocumentoDTE[]>(
+    ALL_DTES.map((d) => ({ ...d, seleccionado: false }))
+  );
 
   const [siiConfig, setSiiConfig] = useState<SiiConfig>({
     declaracionCumplimiento: false,
@@ -126,7 +159,7 @@ export default function PasoProduccion() {
 
   const [checklistFile, setChecklistFile] = useState<File | null>(null);
 
-  const [representantes] = useState<Representante[]>([
+  const [representantes, setRepresentantes] = useState<Representante[]>([
     { nombre: "—", rut: "—" },
   ]);
 
@@ -137,6 +170,227 @@ export default function PasoProduccion() {
   const [contactos, setContactos] = useState<Contacto[]>([
     { nombre: "", telefono: "", email: "" },
   ]);
+
+  /* ======== Carga inicial desde BD ======== */
+  useEffect(() => {
+    if (!empkeyParam || Number.isNaN(empkey)) {
+      setLoadingDB(false);
+      setError("No se recibió empkey válido en la URL.");
+      return;
+    }
+
+    const load = async () => {
+      setLoadingDB(true);
+      setError(null);
+      try {
+        // 1. Empresa base
+        const { data: emp, error: empErr } = await supabase
+          .from("empresa")
+          .select("empkey, rut, nombre, nombre_fantasia, producto")
+          .eq("empkey", empkey)
+          .single();
+
+        if (empErr) throw empErr;
+
+        setEmpresa({
+          razonSocial: emp.nombre ?? emp.nombre_fantasia ?? "—",
+          rut: emp.rut ?? "—",
+          tipoIntegracion: "—", // se sobreescribe desde OB
+          plataforma: productoLabel(emp.producto),
+        });
+
+        // 2. Empresa onboarding (puede no existir)
+        const { data: obRaw } = await supabase
+          .from("empresa_onboarding")
+          .select("*")
+          .eq("empkey", empkey)
+          .maybeSingle();
+
+        const ob = obRaw as any;
+
+        if (ob) {
+          if (ob.pap_fecha_hora) setFechaHora(ob.pap_fecha_hora);
+          if (ob.ticket_hs) setTicketHS(ob.ticket_hs);
+          if (ob.tipo_integracion)
+            setEmpresa((e) => ({ ...e, tipoIntegracion: String(ob.tipo_integracion) }));
+          if (ob.tipo_certificacion) setTipoCertificacion(ob.tipo_certificacion);
+          if (ob.casilla_intercambio) setCasillaIntercambio(ob.casilla_intercambio);
+
+          // Documentos DTE seleccionados
+          const obDtes: string[] = Array.isArray(ob.documentos_dte) ? ob.documentos_dte : [];
+          if (obDtes.length > 0) {
+            setDocumentos(
+              ALL_DTES.map((d) => ({
+                ...d,
+                seleccionado: obDtes.includes(d.id),
+              }))
+            );
+          }
+
+          // Configuración guardada en jsonb
+          const cfg = ob.configuracion ?? {};
+          if (cfg.siiConfig) setSiiConfig(cfg.siiConfig);
+          if (cfg.actividades) setActividades(cfg.actividades);
+          if (cfg.usuarios) setUsuarios(cfg.usuarios);
+          if (cfg.contactos) setContactos(cfg.contactos);
+        }
+
+        // 3. Representantes legales
+        const { data: reps } = await supabase
+          .from("empresa_representante")
+          .select("rut, representante_legal:representante_legal!empresa_representante_rut_fkey(rut, nombre)")
+          .eq("empkey", empkey);
+
+        if (reps && reps.length > 0) {
+          setRepresentantes(
+            reps.map((r: any) => ({
+              rut: r.representante_legal?.rut ?? r.rut ?? "—",
+              nombre: r.representante_legal?.nombre ?? "—",
+            }))
+          );
+        }
+
+        // 4. pap_solicitud — revisar estado
+        const { data: papRow } = await supabase
+          .from("pap_solicitud")
+          .select("id, estado, enviado_a_sac_at")
+          .eq("empkey", empkey)
+          .maybeSingle();
+
+        if (papRow) {
+          setPapSolicitudId(papRow.id);
+          if (papRow.estado !== "pre_ingreso") {
+            setYaEnviadoASac(true);
+          }
+        }
+      } catch (e: any) {
+        console.error(e);
+        setError(e?.message ?? "Error cargando datos de la empresa.");
+      } finally {
+        setLoadingDB(false);
+      }
+    };
+
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empkeyParam]);
+
+  /* ======== Guardar configuración en empresa_onboarding ======== */
+  const guardarConfiguracion = async () => {
+    setSaving(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const docsSeleccionados = documentos.filter((d) => d.seleccionado).map((d) => d.id);
+
+      const updatePayload: Record<string, any> = {
+        pap_fecha_hora: fechaHora || null,
+        ticket_hs: ticketHS || null,
+        tipo_integracion: empresa.tipoIntegracion !== "—" ? empresa.tipoIntegracion : null,
+        tipo_certificacion: tipoCertificacion || null,
+        casilla_intercambio: casillaIntercambio || null,
+        documentos_dte: docsSeleccionados,
+        configuracion: {
+          siiConfig,
+          actividades,
+          usuarios: usuarios.filter((u) => u.nombre || u.rut),
+          contactos: contactos.filter((c) => c.nombre || c.telefono || c.email),
+        },
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: updErr } = await supabase
+        .from("empresa_onboarding")
+        .update(updatePayload)
+        .eq("empkey", empkey);
+
+      if (updErr) throw updErr;
+
+      setSuccessMsg("Configuración guardada correctamente ✅");
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message ?? "Error al guardar configuración.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /* ======== Enviar a SAC (transicionar pap_solicitud) ======== */
+  const enviarASac = async () => {
+    if (yaEnviadoASac) return;
+
+    const confirmado = window.confirm(
+      "¿Confirmas enviar esta solicitud de PAP a SAC?\n\nEsto guardará la configuración actual y enviará la solicitud para que Admin SAC la asigne a un ejecutivo."
+    );
+    if (!confirmado) return;
+
+    setEnviando(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      // 1. Guardar configuración primero
+      await guardarConfiguracion();
+
+      // 2. Actualizar pap_solicitud: pre_ingreso → pendiente
+      const now = new Date().toISOString();
+
+      if (papSolicitudId) {
+        const { error: papErr } = await supabase
+          .from("pap_solicitud")
+          .update({
+            estado: "pendiente",
+            enviado_a_sac_at: now,
+          })
+          .eq("id", papSolicitudId);
+
+        if (papErr) throw papErr;
+      } else {
+        // Si no existe pap_solicitud, crearla directamente como pendiente
+        const { error: papErr } = await supabase
+          .from("pap_solicitud")
+          .insert([
+            {
+              empkey,
+              estado: "pendiente",
+              creado_por_rut: profile?.rut ?? null,
+              enviado_a_sac_at: now,
+            },
+          ]);
+
+        if (papErr) throw papErr;
+      }
+
+      // 3. Actualizar estado de la empresa a SAC (si aún está en OB)
+      await supabase
+        .from("empresa")
+        .update({ estado: "SAC", updated_at: now })
+        .eq("empkey", empkey)
+        .in("estado", ["OB", "PAP"]);
+
+      // 4. Crear notificación para SAC
+      // (Intentamos insertar; si la tabla no tiene permisos, no es crítico)
+      try {
+        await supabase.from("onboarding_notificacion").insert([
+          {
+            empkey,
+            tipo: "enviado_sac",
+            descripcion: `Solicitud PAP enviada a SAC para empresa ${empresa.razonSocial} (${empresa.rut})`,
+          },
+        ]);
+      } catch {
+        // No crítico
+      }
+
+      setYaEnviadoASac(true);
+      setSuccessMsg("¡Solicitud enviada a SAC exitosamente! 🚀 Admin SAC podrá verla en su dashboard.");
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message ?? "Error al enviar solicitud a SAC.");
+    } finally {
+      setEnviando(false);
+    }
+  };
 
   /* =================== Asuntos / cuerpos =================== */
 
@@ -424,18 +678,58 @@ export default function PasoProduccion() {
 
   /* ====================== Render ====================== */
 
+  if (loadingDB) {
+    return (
+      <div className="container py-4" style={{ maxWidth: 980 }}>
+        <div className="text-center py-5">
+          <Loader2 className="spin" size={32} />
+          <div className="text-muted mt-2">Cargando datos de la empresa…</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!empkeyParam || Number.isNaN(empkey)) {
+    return (
+      <div className="container py-4" style={{ maxWidth: 980 }}>
+        <BackButton fallback="/onboarding/paso-produccion-listado" />
+        <div className="alert alert-danger mt-3">
+          No se recibió un empkey válido. Vuelve al listado y selecciona una empresa.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container py-4" style={{ maxWidth: 980 }}>
       {/* Header con botón Atrás */}
       <div className="d-flex align-items-center gap-3 mb-3">
-        <BackButton fallback="/onboarding/mis-empresas" />
+        <BackButton fallback="/onboarding/paso-produccion-listado" />
         <div>
           <h4 className="mb-1">Paso a Producción</h4>
           <p className="text-muted small mb-0">
             Configura los datos necesarios para coordinar el PAP con SAC.
+            {" "}<b>Empkey {empkey}</b> • {empresa.razonSocial} • {empresa.rut}
           </p>
         </div>
+        {yaEnviadoASac && (
+          <span className="badge bg-success ms-auto">Enviado a SAC</span>
+        )}
       </div>
+
+      {error && (
+        <div className="alert alert-danger d-flex align-items-center gap-2">
+          <AlertTriangle size={18} />
+          {error}
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="alert alert-success d-flex align-items-center gap-2">
+          <CheckCircle2 size={18} />
+          {successMsg}
+        </div>
+      )}
 
       {/* 1. Horario */}
       <div className="card mb-3">
@@ -504,6 +798,23 @@ export default function PasoProduccion() {
                 readOnly
               />
             </div>
+            <div className="col-md-3">
+              <label className="form-label">Tipo de certificación</label>
+              <input
+                className="form-control"
+                value={tipoCertificacion}
+                readOnly
+              />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label">Casilla de intercambio</label>
+              <input
+                className="form-control"
+                value={casillaIntercambio}
+                onChange={(e) => setCasillaIntercambio(e.target.value)}
+                placeholder="casilla@empresa.cl"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -514,17 +825,33 @@ export default function PasoProduccion() {
           <strong>3) Documentos tributarios electrónicos a habilitar</strong>
         </div>
         <div className="card-body">
-          <p className="text-muted">
-            (Se traen desde la configuración de Onboarding; no se editan aquí)
+          <p className="text-muted small">
+            Selecciona los documentos que aplican para esta empresa.
           </p>
-          <ul className="mb-0">
-            {documentos
-              .filter((d) => d.seleccionado)
-              .map((d) => (
-                <li key={d.id}>✅ {d.nombre}</li>
-              ))}
-            {!documentos.some((d) => d.seleccionado) && <li>{dash}</li>}
-          </ul>
+          <div className="row g-2">
+            {documentos.map((d, idx) => (
+              <div className="col-md-6" key={d.id}>
+                <div className="form-check">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id={`dte-${d.id}`}
+                    checked={d.seleccionado}
+                    onChange={(e) =>
+                      setDocumentos((prev) => {
+                        const copy = [...prev];
+                        copy[idx] = { ...copy[idx], seleccionado: e.target.checked };
+                        return copy;
+                      })
+                    }
+                  />
+                  <label className="form-check-label" htmlFor={`dte-${d.id}`}>
+                    {d.nombre}
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -809,16 +1136,64 @@ export default function PasoProduccion() {
         </div>
       </div>
 
-      <div className="d-flex gap-2">
-        <button
-          className="btn btn-outline-primary"
-          onClick={onAbrirGmailConBorrador}
-        >
-          Redactar en Gmail
-        </button>
-        <button className="btn btn-primary" onClick={onEnviarAppScript}>
-          Enviar con Apps Script
-        </button>
+      {/* ===== Acciones principales ===== */}
+      <div className="card mb-3 border-primary">
+        <div className="card-header bg-primary bg-opacity-10">
+          <strong>Acciones</strong>
+        </div>
+        <div className="card-body">
+          <div className="d-flex flex-wrap gap-2">
+            {/* Guardar configuración (sin enviar a SAC) */}
+            <button
+              className="btn btn-outline-primary d-flex align-items-center gap-2"
+              onClick={guardarConfiguracion}
+              disabled={saving || enviando}
+            >
+              {saving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+              Guardar configuración
+            </button>
+
+            {/* Enviar a SAC — transiciona pap_solicitud */}
+            <button
+              className="btn btn-success d-flex align-items-center gap-2"
+              onClick={enviarASac}
+              disabled={saving || enviando || yaEnviadoASac}
+            >
+              {enviando ? (
+                <Loader2 size={16} className="spin" />
+              ) : (
+                <Send size={16} />
+              )}
+              {yaEnviadoASac ? "Ya enviado a SAC ✓" : "Enviar solicitud a SAC"}
+            </button>
+
+            <div className="vr mx-1" />
+
+            {/* Correo (funcionalidad existente) */}
+            <button
+              className="btn btn-outline-secondary"
+              onClick={onAbrirGmailConBorrador}
+            >
+              Redactar en Gmail
+            </button>
+            <button className="btn btn-secondary" onClick={onEnviarAppScript}>
+              Enviar con Apps Script
+            </button>
+          </div>
+
+          {yaEnviadoASac && (
+            <div className="form-text mt-2 text-success">
+              ✅ La solicitud ya fue enviada a SAC. Admin SAC puede verla en su dashboard y asignarla a un ejecutivo.
+            </div>
+          )}
+
+          {!yaEnviadoASac && (
+            <div className="form-text mt-2">
+              💡 <b>Guardar configuración</b> guarda los datos sin enviar a SAC.{" "}
+              <b>Enviar solicitud a SAC</b> guarda y notifica a Admin SAC para que asigne un ejecutivo.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

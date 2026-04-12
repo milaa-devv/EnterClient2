@@ -47,10 +47,27 @@ const ConfiguracionEmpresaFormWrapper: React.FC<{ onSave?: (data: any) => void }
 
           const configuracionGuardada = ob?.configuracion ?? null
 
+          // Cargar documentación de Comercial (pre_ingresos)
+          let docComercial: any = null
+          if (data.rut) {
+            const { data: preData } = await (supabase as any)
+              .from('pre_ingresos')
+              .select('datos_json')
+              .eq('rut', data.rut)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (preData?.datos_json?.documentacion) {
+              docComercial = preData.datos_json.documentacion
+            }
+          }
+
           setEmpresa({
             ...data,
             productos: productosFinales,
             producto: productosFinales[0] ?? null,
+            docComercial,
             onboarding: configuracionGuardada
               ? { configuracionEmpresa: configuracionGuardada }
               : undefined,
@@ -114,7 +131,7 @@ const ConfiguracionEmpresaFormWrapper: React.FC<{ onSave?: (data: any) => void }
           </div>
         </div>
       )}
-      <ConfiguracionEmpresaForm empresa={empresa} onSave={handleSave} />
+      <ConfiguracionEmpresaForm empresa={empresa} onSave={handleSave} docComercial={empresa?.docComercial} />
     </>
   )
 }

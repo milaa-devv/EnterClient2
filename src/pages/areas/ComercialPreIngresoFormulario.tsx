@@ -335,7 +335,7 @@ const PreIngresoFormInner: React.FC<{ preIngreso: PreIngreso; onEnviado: () => v
       if (!papExistente) {
         const { error: papErr } = await supabase
           .from('pap_solicitud')
-          .insert([{ empkey: empresaEmpkey, estado: 'pendiente', creado_por_rut }])
+          .insert([{ empkey: empresaEmpkey, estado: 'pre_ingreso', creado_por_rut, pre_ingreso_at: new Date().toISOString() }])
         if (papErr) throw papErr
       }
 
