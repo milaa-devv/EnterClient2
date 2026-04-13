@@ -324,7 +324,7 @@ const OnboardingAdminDashboard: React.FC = () => {
                         </span>
                         {e.producto && (
                           <span className="badge bg-light text-muted border">
-                            {e.producto}
+                            {e.producto === 'ENTERFAC' ? 'Enternet' : e.producto === 'ANDESPOS' ? 'AndesPOS' : e.producto}
                           </span>
                         )}
                       </div>

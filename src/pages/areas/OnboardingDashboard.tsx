@@ -6,38 +6,28 @@ import {
   CheckCircle,
   Building2,
   BarChart2,
-  ArrowRight
+  ArrowRight,
+  Eye
 } from 'lucide-react'
 import { useEmpresaSearch } from '@/hooks/useEmpresaSearch'
 import { useAuth } from '@/hooks/useAuth'
 import type { EmpresaCompleta } from '@/types/empresa'
 import { formatRut } from '@/lib/utils'
 import { BackButton } from '@/components/BackButton'
+import { ResumenOnboardingModal } from '@/components/modals/ResumenOnboardingModal'
+import { 
+  getEstadoOnb, 
+  getProgress, 
+  isPendientePAP, 
+  isEnSACoCompletada 
+} from '@/lib/onboardingProgress'
 
-function getEstadoOnb(e: EmpresaCompleta): string {
-  const fromOnb = ((e as any).empresa_onboarding?.estado || '').toString()
-  if (fromOnb) return fromOnb
-  return ((e as any).estado || 'pendiente').toString()
-}
-
-function getProgress(e: EmpresaCompleta): number {
-  const estado = getEstadoOnb(e).toUpperCase()
-
-  if (estado.includes('COMPLETA') || estado === 'SAC') return 100
-  if (estado.includes('PAP')) return 80
-  if (estado.includes('ONBOARDING') || estado.includes('PROCESO') || estado.includes('CONFIG')) return 50
-  if (estado.includes('PENDIENTE')) return 0
-  return 0
-}
-
-function isPendientePAP(e: EmpresaCompleta): boolean {
-  const estado = getEstadoOnb(e).toUpperCase()
-  return estado.includes('PAP') && !estado.includes('SAC') && !estado.includes('COMPLETA')
-}
-
-function isEnSACoCompletada(e: EmpresaCompleta): boolean {
-  const estado = getEstadoOnb(e).toUpperCase()
-  return estado === 'SAC' || estado.includes('COMPLETA')
+// Función auxiliar para obtener el producto como string
+function getProductoStr(e: any): string {
+  if (!e.producto) return ''
+  if (typeof e.producto === 'string') return e.producto
+  if (Array.isArray(e.producto)) return e.producto[0] || ''
+  return ''
 }
 
 const OnboardingDashboard: React.FC = () => {
@@ -48,8 +38,12 @@ const OnboardingDashboard: React.FC = () => {
   const isAdminOb = profile?.perfil?.nombre === 'ADMIN_OB'
 
   const [filtroAsignadas, setFiltroAsignadas] = useState<
-    'todas' | 'pendientes' | 'proceso' | 'completadas'
+    'todas' | 'pendientes' | 'proceso' | 'completadas' | 'enviadas_sac'
   >('todas')
+  
+  // Estado para el modal de resumen
+  const [empresaResumen, setEmpresaResumen] = useState<EmpresaCompleta | null>(null)
+  const [modalResumenOpen, setModalResumenOpen] = useState(false)
 
   const asignadas = empresas
 
@@ -74,8 +68,9 @@ const OnboardingDashboard: React.FC = () => {
     return asignadas.filter((e) => {
       const p = getProgress(e)
       if (filtroAsignadas === 'pendientes') return p === 0
-      if (filtroAsignadas === 'proceso') return p > 0 && p < 100
-      if (filtroAsignadas === 'completadas') return p === 100
+      if (filtroAsignadas === 'proceso') return p > 0 && p < 80
+      if (filtroAsignadas === 'completadas') return p === 80 && !isEnSACoCompletada(e)
+      if (filtroAsignadas === 'enviadas_sac') return isEnSACoCompletada(e)
       return true
     })
   }, [asignadas, filtroAsignadas])
@@ -221,6 +216,13 @@ const OnboardingDashboard: React.FC = () => {
                 >
                   Completadas
                 </button>
+                <button
+                  type="button"
+                  className={`btn btn-outline-success ${filtroAsignadas === 'enviadas_sac' ? 'active' : ''}`}
+                  onClick={() => setFiltroAsignadas('enviadas_sac')}
+                >
+                  Enviadas a SAC
+                </button>
               </div>
             </div>
 
@@ -256,11 +258,13 @@ const OnboardingDashboard: React.FC = () => {
                             <td>{e.rut ? formatRut(e.rut) : '—'}</td>
                             <td>{e.nombre || e.nombre_fantasia || 'Sin nombre'}</td>
                             <td>
-                              {(e as any).producto === 'ANDESPOS'
+                              {getProductoStr(e) === 'ANDESPOS'
                                 ? <span className="badge bg-info bg-opacity-10 text-info fw-normal">AndesPOS</span>
-                                : (e as any).producto === 'ENTERFAC'
-                                  ? <span className="badge bg-primary bg-opacity-10 text-primary fw-normal">Enternet</span>
-                                  : <span className="text-muted">—</span>
+                                : getProductoStr(e) === 'ENTERFAC'
+                                  ? <span className="badge fw-normal" style={{ backgroundColor: '#d4edda', color: '#155724', border: '1px solid #c3e6cb' }}>Enternet</span>
+                                  : getProductoStr(e) === 'LCE'
+                                    ? <span className="badge bg-success bg-opacity-10 text-success fw-normal">LCE</span>
+                                    : <span className="text-muted">—</span>
                               }
                             </td>
                             <td>
@@ -273,14 +277,31 @@ const OnboardingDashboard: React.FC = () => {
                               </div>
                             </td>
                             <td className="text-end">
-                              <button
-                                className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
-                                type="button"
-                                onClick={() => navigate(`/configuracion-empresa/${e.empkey}`)}
-                              >
-                                <BarChart2 size={14} />
-                                Configurar
-                              </button>
+                              <div className="d-flex gap-1 justify-content-end">
+                                {/* Botón Ver Resumen */}
+                                <button
+                                  className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+                                  type="button"
+                                  onClick={() => {
+                                    setEmpresaResumen(e)
+                                    setModalResumenOpen(true)
+                                  }}
+                                  title="Ver resumen de configuración"
+                                >
+                                  <Eye size={14} />
+                                  Resumen
+                                </button>
+                                
+                                {/* Botón Configurar */}
+                                <button
+                                  className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
+                                  type="button"
+                                  onClick={() => navigate(`/configuracion-empresa/${e.empkey}`)}
+                                >
+                                  <BarChart2 size={14} />
+                                  Configurar
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         )
@@ -397,6 +418,17 @@ const OnboardingDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Modal de Resumen */}
+      <ResumenOnboardingModal
+        isOpen={modalResumenOpen}
+        onClose={() => {
+          setModalResumenOpen(false)
+          setEmpresaResumen(null)
+        }}
+        empresa={empresaResumen}
+        configuracion={(empresaResumen as any)?.empresa_onboarding?.configuracion}
+      />
     </div>
   )
 }

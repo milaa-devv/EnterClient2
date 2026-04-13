@@ -31,7 +31,7 @@ interface UseEmpresaSearchReturn {
   setCurrentPage: (page: number) => void
   pageSize: number
   setPageSize: (size: number) => void
-  /** 🔄 Forzar recarga manual desde las pantallas (btn “Actualizar listado”) */
+  /** 🔄 Forzar recarga manual desde las pantallas (btn "Actualizar listado") */
   reload: () => void
 }
 
@@ -101,6 +101,11 @@ export const useEmpresaSearch = (options?: UseEmpresaSearchOptions): UseEmpresaS
           updated_at,
           configuracion
         ),
+        pap:pap_solicitud (
+          id,
+          estado,
+          enviado_a_sac_at
+        ),
         ${joins.sac} (
           nombre_sac,
           correo_sac,
@@ -145,7 +150,7 @@ export const useEmpresaSearch = (options?: UseEmpresaSearchOptions): UseEmpresaS
 
       return query
     },
-    [filters.estado, filters.fechaInicio, filters.fechaFin, joins.isOb, options?.obView, profile?.rut]
+    [filters.estado, filters.fechaInicio, filters.fechaFin, joins.isOb, options?.obView, profile?.rut, role]
   )
 
   const inFlight = useRef(0)
@@ -191,6 +196,7 @@ export const useEmpresaSearch = (options?: UseEmpresaSearchOptions): UseEmpresaS
         empresa_comercial: firstOrSelf(row.empresa_comercial),
         empresa_onboarding: firstOrSelf(row.empresa_onboarding),
         empresa_sac: firstOrSelf(row.empresa_sac),
+        pap: firstOrSelf(row.pap),  // ✅ AGREGADO: normalizar pap_solicitud
       })) as EmpresaCompleta[]
 
       setEmpresas(normalized)

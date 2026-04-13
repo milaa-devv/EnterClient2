@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth, usePermissions } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { usePreIngresos } from '@/hooks/usePreIngresos'
+import { useOnboardingStats } from '@/hooks/useOnboardingStats'
 import {
   Building2,
   Plus,
@@ -35,6 +36,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { profile } = useAuth()
   const { isComercial, isOnboardingAdmin, isOnboardingExecutive } = usePermissions()
   const { stats: preIngresoStats } = usePreIngresos()
+  
+  // Stats de Onboarding
+  const onboardingStats = useOnboardingStats()
 
   const role = profile?.perfil?.nombre
 
@@ -197,7 +201,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           label: 'Solicitudes Nuevas',
           icon: <Plus className="nav-icon" />,
           path: '/onboarding/solicitudes-nuevas',
-          badge: 4,
+          badge: onboardingStats.nuevasSolicitudes,  // ✅ Dinámico
         },
         {
           id: 'paso-produccion',

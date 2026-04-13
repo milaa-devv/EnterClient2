@@ -19,7 +19,7 @@ type ProductoKey = "ENTERFAC" | "ANDESPOS" | "ANDESPOS_ENTERBOX" | "LCE";
 
 /** Etiquetas visibles */
 const PRODUCT_LABEL: Record<ProductoKey, string> = {
-  ENTERFAC: "Enterfact",
+  ENTERFAC: "Enternet",
   ANDESPOS: "AndesPOS",
   ANDESPOS_ENTERBOX: "AndesPOS Enterbox",
   LCE: "LCE",
@@ -183,7 +183,7 @@ function TabsContent({ value, children }: { value: string; children: React.React
 const onlyDigits = (s: string) => s.replace(/\D+/g, "");
 const onlyAlnum = (s: string) => s.replace(/[^a-zA-Z0-9=+/_.@!#$%&*\-]/g, "");
 const isCsv = (file: File) => !!file && (file.type.includes("csv") || /\.csv$/i.test(file.name));
-const isValidUrl = (u: string) => { try { new URL(u); return true; } catch { return false; } };
+// const isValidUrl = (u: string) => { try { new URL(u); return true; } catch { return false; } };
 /* ================= Form principal ================= */
 type Props = { empresa?: any; onSave: (data: any) => void; docComercial?: { logoNombre?: string | null; vbNombre?: string | null } };
 
@@ -211,6 +211,7 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave, docComercial
     // Integración (ahora por documento en Documentos&Layout)
     tipo_texto: "", parser: "",
     modalidad_firma: "CONTROLADA", admin_folios: "EN",
+    tipo_firma: "CONTROLADA",
     version_emisor: "", version_winplugin: "", version_winbatch: "",
     version_win_emisor_ws: "",
     ...empresa?.onboarding?.configuracionEmpresa?.enterfac,
@@ -245,6 +246,12 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave, docComercial
   const [efBatchCamCustom, setEfBatchCamCustom] = useState<Partial<Record<DteKey, boolean>>>({});
   const [efBatchParserPorDoc, setEfBatchParserPorDoc] = useState<Partial<Record<DteKey, "SI" | "NO">>>({});
 
+  // AppFull (Transferencia de Archivos)
+  type AppFullVersion = "V21" | "V23" | "V25" | "";
+  type AppFullDispositivo = { nombre: string; activo: boolean };
+  const [appFullVersion, setAppFullVersion] = useState<AppFullVersion>("");
+  const [appFullDispositivos, setAppFullDispositivos] = useState<AppFullDispositivo[]>([]);
+
   const handleCsvPerDoc = (doc: DteKey, file: File | null, cod: Codificacion) => {
     if (!file) {
       setEfBatchPorDoc(prev => ({ ...prev, [doc]: { file: null, codificacion: cod, preview: [] } }));
@@ -262,6 +269,59 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave, docComercial
     };
     reader.readAsText(file, cod === "ANSI" ? "windows-1252" : "utf-8");
   };
+
+  // Funciones para manejar dispositivos AppFull
+  const agregarDispositivo = () => {
+    setAppFullDispositivos(prev => [...prev, { nombre: "", activo: true }]);
+  };
+
+  const actualizarDispositivo = (index: number, field: 'nombre' | 'activo', value: string | boolean) => {
+    setAppFullDispositivos(prev => prev.map((disp, i) => 
+      i === index ? { ...disp, [field]: value } : disp
+    ));
+  };
+
+  const eliminarDispositivo = (index: number) => {
+    setAppFullDispositivos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Cargar datos guardados de la empresa al montar el componente
+  useEffect(() => {
+    if (empresa?.onboarding?.configuracionEmpresa) {
+      const config = empresa.onboarding.configuracionEmpresa;
+      
+      // Cargar integraciones
+      if (config.enterfac?.integraciones) {
+        const integ = config.enterfac.integraciones;
+        if (integ.general) setEfIntegracionGeneral(integ.general);
+        if (integ.porDocumento) setEfIntegracionPorDoc(integ.porDocumento);
+        if (integ.wsTipoPorDocumento) setEfWsTipoPorDoc(integ.wsTipoPorDocumento);
+        if (integ.wsEndpointPorDocumento) setEfWsEndpointPorDoc(integ.wsEndpointPorDocumento);
+        if (integ.wsGetEstadoPorDocumento) setEfWsGetEstadoPorDoc(integ.wsGetEstadoPorDocumento);
+        
+        // Cargar AppFull
+        if (integ.appFull) {
+          if (integ.appFull.version) setAppFullVersion(integ.appFull.version);
+          if (integ.appFull.dispositivos) setAppFullDispositivos(integ.appFull.dispositivos);
+        }
+      }
+      
+      // Cargar modalidades
+      if (config.enterfac?.modalidades) {
+        const mod = config.enterfac.modalidades;
+        if (mod.porDocumento) setEnterfacPorDoc(mod.porDocumento);
+        if (mod.porDocumentoMulti) setEnterfacPorDocMulti(mod.porDocumentoMulti);
+      }
+      
+      // Cargar modalidades Andes
+      if (config.andespos?.modalidades) {
+        const modAndes = config.andespos.modalidades;
+        if (modAndes.porDocumento) setAndesPorDoc(modAndes.porDocumento);
+        if (modAndes.porDocumentoMulti) setAndesPorDocMulti(modAndes.porDocumentoMulti);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** AndesPOS / Enterbox comparten estructura */
   const [andespos, setAndespos] = useState<any>({
@@ -415,19 +475,35 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave, docComercial
   };
 
   /* === Guardar === */
-  const buildPayload = () => ({
-    productos,
-    enterfac: {
-      ...enterfac,
-      dte_habilitados: enterfac.dte_habilitados,
-      layout: enterfac.layout,
-      layout_key: enterfac.layout_key,
-      url_layout_selected: enterfac.url_layout_selected,
-      url_layout_custom: enterfac.url_layout_custom,
-      layout_termico: enterfac.layout_termico,
-      layout_termico_key: enterfac.layout_termico_key,
-      url_layout_termico_selected: enterfac.url_layout_termico_selected,
-      url_layout_termico_custom: enterfac.url_layout_termico_custom,
+  const buildPayload = () => {
+    // Guardar el archivo File en una bandera especial para que el wrapper lo suba
+    const vistoBuenoFile = enterfac.url_visto_bueno instanceof File 
+      ? enterfac.url_visto_bueno 
+      : null;
+
+    return {
+      productos,
+      // Bandera especial con el archivo File (no se serializa en JSON)
+      _vistoBuenoFile: vistoBuenoFile,
+      enterfac: {
+        ...enterfac,
+        // Si es File nuevo, guardar solo el nombre temporalmente
+        // Si es string (URL), mantenerlo
+        url_visto_bueno: enterfac.url_visto_bueno instanceof File
+          ? enterfac.url_visto_bueno.name
+          : enterfac.url_visto_bueno,
+        visto_bueno_nombre: enterfac.url_visto_bueno instanceof File
+          ? enterfac.url_visto_bueno.name
+          : (enterfac.visto_bueno_nombre || null),
+        dte_habilitados: enterfac.dte_habilitados,
+        layout: enterfac.layout,
+        layout_key: enterfac.layout_key,
+        url_layout_selected: enterfac.url_layout_selected,
+        url_layout_custom: enterfac.url_layout_custom,
+        layout_termico: enterfac.layout_termico,
+        layout_termico_key: enterfac.layout_termico_key,
+        url_layout_termico_selected: enterfac.url_layout_termico_selected,
+        url_layout_termico_custom: enterfac.url_layout_termico_custom,
       modalidades: {
         general: enterfacGeneral || null,
         porDocumento: enterfacPorDoc,
@@ -447,6 +523,10 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave, docComercial
             parser: efBatchParserPorDoc[k as DteKey] ?? "NO",
           }])
         ),
+        appFull: {
+          version: appFullVersion,
+          dispositivos: appFullDispositivos,
+        },
       },
       versiones: {
         winPlugin: enterfac.version_winplugin,
@@ -471,23 +551,15 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave, docComercial
       centro_responsabilidad: lce.centro_responsabilidad?.name ?? null,
     },
     boxes: (productos.includes("ANDESPOS") || productos.includes("ANDESPOS_ENTERBOX")) ? boxes : [],
-  });
+    };
+  };
 
   const save = () => {
-    if (productos.includes("ENTERFAC")) {
-      if (enterfac.layout === "ESTANDAR") {
-        if (!enterfac.layout_key) return alert("Debes seleccionar un layout estándar.");
-        if (!enterfac.url_layout_selected || !isValidUrl(enterfac.url_layout_selected)) {
-          return alert("La URL del layout seleccionado es obligatoria y válida.");
-        }
-      } else {
-        if (!enterfac.url_layout_custom || !isValidUrl(enterfac.url_layout_custom)) {
-          return alert("La URL del layout Custom es obligatoria y válida.");
-        }
-      }
-    }
+    // Layout ya no es obligatorio - se puede tener solo térmico, solo layout, o ambos
     const payload = buildPayload();
-    onSave?.(payload);
+    // Agregar bandera para indicar que el formulario está completado
+    const payloadCompleto = { ...payload, _completado: true };
+    onSave?.(payloadCompleto);
     if (empresa?.empkey) navigate(dashboardPath);
     else alert("Configuración guardada (ver payload en onSave).");
   };
@@ -495,11 +567,13 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave, docComercial
   const dashboardPath = isOnboardingAdmin() ? '/onboarding/admin-dashboard' : '/onboarding/mis-empresas';
 
   const guardarYSeguir = () => {
+    // No marcar como completado en guardados parciales
     onSave?.(buildPayload());
     next();
   };
 
   const guardarYSalir = () => {
+    // No marcar como completado en guardados parciales
     onSave?.(buildPayload());
     navigate(dashboardPath);
   };
@@ -1090,10 +1164,10 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave, docComercial
     <div>
       <SectionTitle>Integración & Versionado</SectionTitle>
 
-      {/* ENTERFACT */}
+      {/* Configuración de Emisión */}
       {productos.includes("ENTERFAC") && (
         <div className="border rounded p-3 mb-3">
-          <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>ENTERFACT</h6>
+          <h6 className="font-primary mb-3" style={{ fontWeight: 700 }}>Configuración de Emisión</h6>
           <div className="row g-3">
 
             {/* Tipo de Mensaje */}
@@ -1148,12 +1222,129 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave, docComercial
               </select>
             </div>
 
-            {/* Batch por documento (CAM + Codificación + preview) */}
-            <div className="col-12">
-              <SectionTitle>Configuración Batch por Documento</SectionTitle>
-              {((enterfac.dte_habilitados || []) as DteKey[])
-                .filter((id) => (efIntegracionPorDoc[id] ?? efIntegracionGeneral).includes("Batch"))
-                .map((id) => {
+            {/* Configuración AppFull - Solo mostrar si hay documentos con Transferencia de Archivos */}
+            {((enterfac.dte_habilitados || []) as DteKey[])
+              .filter((id) => (efIntegracionPorDoc[id] ?? efIntegracionGeneral).includes("Transferencia de Archivo"))
+              .length > 0 && (
+              <div className="col-12">
+                <SectionTitle>Configuración Transferencia de Archivos (AppFull)</SectionTitle>
+                
+                <div className="row g-3">
+                  {/* Versión AppFull */}
+                  <div className="col-md-4">
+                    <FieldLabel>Versión AppFull</FieldLabel>
+                    <select
+                      className="form-select"
+                      value={appFullVersion}
+                      onChange={(e) => {
+                        const version = e.target.value as AppFullVersion;
+                        setAppFullVersion(version);
+                        // Si cambia a V21, limpiar dispositivos
+                        if (version === "V21") {
+                          setAppFullDispositivos([]);
+                        }
+                      }}
+                    >
+                      <option value="">Seleccione</option>
+                      <option value="V21">V21</option>
+                      <option value="V23">V23</option>
+                      <option value="V25">V25</option>
+                    </select>
+                  </div>
+
+                  {/* Dispositivos - Solo para V23 y V25 */}
+                  {(appFullVersion === "V23" || appFullVersion === "V25") && (
+                    <div className="col-12">
+                      <div className="border rounded p-3 bg-light">
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                          <div>
+                            <FieldLabel>Dispositivos Registrados</FieldLabel>
+                            <small className="text-muted d-block">
+                              Registra los equipos donde está instalado AppFull {appFullVersion}
+                            </small>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary"
+                            onClick={agregarDispositivo}
+                          >
+                            + Agregar Dispositivo
+                          </button>
+                        </div>
+
+                        {appFullDispositivos.length === 0 ? (
+                          <div className="text-center text-muted py-3">
+                            No hay dispositivos registrados. Haz clic en "Agregar Dispositivo" para comenzar.
+                          </div>
+                        ) : (
+                          <div className="d-flex flex-column gap-2">
+                            {appFullDispositivos.map((dispositivo, index) => (
+                              <div key={index} className="border rounded p-2 bg-white">
+                                <div className="row g-2 align-items-center">
+                                  <div className="col-md-6">
+                                    <FieldLabel>Nombre del Dispositivo</FieldLabel>
+                                    <input
+                                      type="text"
+                                      className="form-control"
+                                      placeholder="Ej: PC-OFICINA-01"
+                                      value={dispositivo.nombre}
+                                      onChange={(e) => actualizarDispositivo(index, 'nombre', e.target.value)}
+                                    />
+                                  </div>
+                                  <div className="col-md-3">
+                                    <FieldLabel>Estado</FieldLabel>
+                                    <select
+                                      className="form-select"
+                                      value={dispositivo.activo ? "vigente" : "caducado"}
+                                      onChange={(e) => actualizarDispositivo(index, 'activo', e.target.value === "vigente")}
+                                    >
+                                      <option value="vigente">Vigente</option>
+                                      <option value="caducado">Caducado</option>
+                                    </select>
+                                  </div>
+                                  <div className="col-md-3 d-flex align-items-end justify-content-end">
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-danger"
+                                      onClick={() => eliminarDispositivo(index)}
+                                      title="Eliminar dispositivo"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {appFullDispositivos.length > 0 && (
+                          <div className="mt-3 alert alert-info mb-0">
+                            <small>
+                              <strong>Total de dispositivos:</strong> {appFullDispositivos.length} 
+                              {" | "}
+                              <strong>Vigentes:</strong> {appFullDispositivos.filter(d => d.activo).length}
+                              {" | "}
+                              <strong>Caducados:</strong> {appFullDispositivos.filter(d => !d.activo).length}
+                            </small>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Batch por documento (CAM + Codificación + preview) - Solo mostrar si hay documentos con Batch */}
+            {((enterfac.dte_habilitados || []) as DteKey[])
+              .filter((id) => (efIntegracionPorDoc[id] ?? efIntegracionGeneral).includes("Batch"))
+              .length > 0 && (
+              <div className="col-12">
+                <SectionTitle>Configuración Batch por Documento</SectionTitle>
+                {((enterfac.dte_habilitados || []) as DteKey[])
+                  .filter((id) => (efIntegracionPorDoc[id] ?? efIntegracionGeneral).includes("Batch"))
+                  .map((id) => {
                   const meta = [...DTE_CATALOGO["Nacionales"], ...DTE_CATALOGO["Exportación"]].find(x => x.id === id);
                   const cfg = efBatchPorDoc[id] ?? { file: null, codificacion: "ANSI", preview: [] };
                   return (
@@ -1224,7 +1415,8 @@ export default function ConfiguracionEmpresaForm({ empresa, onSave, docComercial
                     </div>
                   );
                 })}
-            </div>
+              </div>
+            )}
 
             {/* Versionado Enterfact (sin AppFull) */}
             <div className="col-md-3">
@@ -1475,10 +1667,10 @@ function renderResumen() {
         </div>
       </div>
 
-      {/* ENTERFACT */}
+      {/* Enternet */}
       {productos.includes("ENTERFAC") && (
         <div className="card mb-3">
-          <div className="card-header font-primary" style={{ fontWeight: 700 }}>ENTERFACT</div>
+          <div className="card-header font-primary" style={{ fontWeight: 700 }}>Enternet</div>
           <div className="card-body">
             <div className="row g-2">
               <div className="col-md-4"><strong>Empkey:</strong> {fmt(enterfac.empkey)}</div>
@@ -1486,12 +1678,32 @@ function renderResumen() {
               <div className="col-md-4"><strong>Pass:</strong> {fmt(enterfac.pass)}</div>
               <div className="col-md-6"><strong>Casilla de intercambio:</strong> {fmt(enterfac.casilla_intercambio)}</div>
 
-              <div className="col-md-6"><strong>Archivo Visto Bueno:</strong> {enterfac.url_visto_bueno?.name ? enterfac.url_visto_bueno.name : dash}</div>
-              <div className="col-md-6"><strong>Logo / Membrete:</strong> {docComercial?.logoNombre ? `✅ ${docComercial.logoNombre}` : '⏳ Pendiente'}</div>
+              <div className="col-md-6">
+                <strong>Archivo Visto Bueno:</strong>{" "}
+                {enterfac.url_visto_bueno ? (
+                  typeof enterfac.url_visto_bueno === 'string' ? (
+                    enterfac.url_visto_bueno.startsWith('http') ? (
+                      <a 
+                        href={enterfac.url_visto_bueno} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary"
+                      >
+                        📄 {enterfac.visto_bueno_nombre || 'Ver archivo'}
+                      </a>
+                    ) : (
+                      `📄 ${enterfac.visto_bueno_nombre || enterfac.url_visto_bueno}`
+                    )
+                  ) : (
+                    `📄 ${enterfac.url_visto_bueno.name}`
+                  )
+                ) : dash}
+              </div>
+              <div className="col-md-6"><strong>Logo / Membrete:</strong> {docComercial?.logoNombre ? `✅ ${docComercial.logoNombre}` : dash}</div>
               <div className="col-md-4"><strong>Layout:</strong> {fmt(enterfac.layout)}</div>
               {enterfac.layout === "ESTANDAR" && (
                 <>
-                  <div className="col-md-4"><strong>Layout Key:</strong> {fmt(enterfac.layout_key)}</div>
+                  <div className="col-md-4"><strong>Layout:</strong> {fmt(enterfac.layout_key)}</div>
                   <div className="col-md-4"><strong>URL Layout:</strong> {fmt(enterfac.url_layout_selected)}</div>
                 </>
               )}
@@ -1502,7 +1714,7 @@ function renderResumen() {
               <div className="col-md-4"><strong>Layout Térmico:</strong> {fmt(enterfac.layout_termico)}</div>
               {enterfac.layout_termico === "ESTANDAR" && (
                 <>
-                  <div className="col-md-4"><strong>Layout Térmico Key:</strong> {fmt(enterfac.layout_termico_key)}</div>
+                  <div className="col-md-4"><strong>Layout Térmico:</strong> {fmt(enterfac.layout_termico_key)}</div>
                   <div className="col-md-4"><strong>URL Layout Térmico:</strong> {fmt(enterfac.url_layout_termico_selected)}</div>
                 </>
               )}
@@ -1515,20 +1727,84 @@ function renderResumen() {
                 <div>{efDtesSel.length ? efDtesSel.map(id => <Chip key={id}>{id}</Chip>) : dash}</div>
               </div>
 
-              {/* (Cuando añadamos modalidad por doc/integración en EF, se imprime aquí) */}
+              {/* Modalidad de Emisión por documento */}
               <div className="col-12 mt-2">
-                <strong>Modalidad de Emisión:</strong> <span className="ms-2 text-muted">—</span>
+                <strong>Modalidad de Emisión:</strong>
+                <div className="mt-1">
+                  {efDtesSel.length > 0 ? (
+                    efDtesSel.map((id: DteKey) => {
+                      const modalidades = enterfacPorDocMulti[id] || [];
+                      if (modalidades.length === 0) return null;
+                      return (
+                        <div key={`modal-${id}`} className="mb-1">
+                          <Chip>{nombreDte(id)}</Chip>
+                          {modalidades.map((m, idx) => <Chip key={idx}>{m}</Chip>)}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </div>
               </div>
 
-              {/* Integraciones por documento (solo si ya las tienes en estado; si no, queda en —) */}
+              {/* Integraciones por documento */}
               <div className="col-12 mt-2">
-                <strong>Integraciones por Documento:</strong> <span className="ms-2 text-muted">—</span>
+                <strong>Integraciones por Documento:</strong>
+                <div className="mt-1">
+                  {efDtesSel.length > 0 ? (
+                    <>
+                      {efIntegracionGeneral.length > 0 && (
+                        <div className="mb-1">
+                          <Chip>General</Chip>
+                          {efIntegracionGeneral.map((int, idx) => <Chip key={idx}>{int}</Chip>)}
+                        </div>
+                      )}
+                      {efDtesSel.map((id: DteKey) => {
+                        const integraciones = efIntegracionPorDoc[id] || [];
+                        if (integraciones.length === 0) return null;
+                        return (
+                          <div key={`integ-${id}`} className="mb-1">
+                            <Chip>{nombreDte(id)}</Chip>
+                            {integraciones.map((int, idx) => <Chip key={idx}>{int}</Chip>)}
+                          </div>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </div>
               </div>
 
               <div className="col-md-3"><strong>Tipo de Mensaje:</strong> {fmt(enterfac.tipo_texto)}</div>
               <div className="col-md-3"><strong>Parser:</strong> {fmt(enterfac.parser)}</div>
               <div className="col-md-3"><strong>Modalidad de Firma:</strong> {fmt(enterfac.modalidad_firma)}</div>
               <div className="col-md-3"><strong>Administrador de Folios:</strong> {fmt(enterfac.admin_folios)}</div>
+
+              {/* AppFull */}
+              {appFullVersion && (
+                <>
+                  <div className="col-12 mt-3">
+                    <strong>AppFull:</strong> {appFullVersion}
+                  </div>
+                  {(appFullVersion === "V23" || appFullVersion === "V25") && appFullDispositivos.length > 0 && (
+                    <div className="col-12">
+                      <strong>Dispositivos Registrados:</strong>
+                      <div className="mt-2">
+                        {appFullDispositivos.map((disp, idx) => (
+                          <div key={idx} className="mb-1">
+                            <Chip>{disp.nombre || `Dispositivo ${idx + 1}`}</Chip>
+                            <span className={`badge ${disp.activo ? 'bg-success' : 'bg-secondary'} ms-1`}>
+                              {disp.activo ? 'Vigente' : 'Caducado'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
               <div className="col-md-3"><strong>WinPlugin:</strong> {fmt(enterfac.version_winplugin)}</div>
               <div className="col-md-3"><strong>WinEmisor:</strong> {fmt(enterfac.version_emisor)}</div>

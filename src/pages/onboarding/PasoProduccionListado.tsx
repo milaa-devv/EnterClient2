@@ -14,9 +14,24 @@ function getEstadoOnb(e: EmpresaCompleta): string {
   return (estado || (e as any).estado || 'pendiente').toString()
 }
 
+function getEmpkeyConfigurado(e: EmpresaCompleta): string {
+  // Obtener el empkey del formulario de configuración
+  const onb: any = (e as any).empresa_onboarding
+  const config = Array.isArray(onb) ? onb?.[0]?.configuracion : onb?.configuracion
+  
+  // Intentar obtener el empkey de enterfac o andespos
+  const empkeyEnterfac = config?.enterfac?.empkey
+  const empkeyAndespos = config?.andespos?.empkey
+  
+  // Retornar el que esté disponible, o el empkey interno como fallback
+  return empkeyEnterfac || empkeyAndespos || String(e.empkey || '—')
+}
+
 function isPendientePAP(e: EmpresaCompleta): boolean {
-  const estado = getEstadoOnb(e).toUpperCase()
-  return estado.includes('PAP') && !estado.includes('SAC') && !estado.includes('COMPLETA')
+  const estado = getEstadoOnb(e).toLowerCase()
+  // Estados según el constraint de BD: 'pendiente', 'en_proceso', 'completado', 'cancelado'
+  // 'completado' significa que está listo para PAP
+  return estado === 'completado'
 }
 
 const LOCAL_PAGE_SIZE = 12
@@ -117,30 +132,33 @@ const PasoProduccionListado: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {pageItems.map((e) => (
-                    <tr key={e.empkey}>
-                      <td className="fw-bold text-primary">{e.empkey}</td>
-                      <td>{e.rut ? formatRut(e.rut) : '—'}</td>
-                      <td>{e.nombre || e.nombre_fantasia || 'Sin nombre'}</td>
-                      <td className="text-end">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-primary d-inline-flex align-items-center gap-2"
-                          onClick={() => {
-                            // Form intacto. Le pasamos query por si luego quieres precargar sin tocar el form aún.
-                            const qs = new URLSearchParams({
-                              empkey: String(e.empkey ?? ''),
-                              rut: e.rut ?? '',
-                              nombre: e.nombre ?? e.nombre_fantasia ?? '',
-                            })
-                            navigate(`/onboarding/paso-produccion?${qs.toString()}`)
-                          }}
-                        >
-                          Ir a PAP <ArrowRight size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {pageItems.map((e) => {
+                    const empkeyMostrar = getEmpkeyConfigurado(e)
+                    return (
+                      <tr key={e.empkey}>
+                        <td className="fw-bold text-primary">{empkeyMostrar}</td>
+                        <td>{e.rut ? formatRut(e.rut) : '—'}</td>
+                        <td>{e.nombre || e.nombre_fantasia || 'Sin nombre'}</td>
+                        <td className="text-end">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary d-inline-flex align-items-center gap-2"
+                            onClick={() => {
+                              // Enviamos el empkey INTERNO para que funcione la consulta
+                              const qs = new URLSearchParams({
+                                empkey: String(e.empkey ?? ''),  // Empkey interno para la query
+                                rut: e.rut ?? '',
+                                nombre: e.nombre ?? e.nombre_fantasia ?? '',
+                              })
+                              navigate(`/onboarding/paso-produccion?${qs.toString()}`)
+                            }}
+                          >
+                            Ir a PAP <ArrowRight size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
